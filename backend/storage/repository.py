@@ -230,9 +230,13 @@ def list_games(session: Session, limit: int = 50, offset: int = 0) -> List[GameL
 
 
 def delete_game(session: Session, game_id: str) -> bool:
+    from storage.models import Study
     game = session.get(Game, game_id)
     if game is None:
         return False
+    study = session.get(Study, game_id)
+    if study:
+        session.delete(study)
     session.delete(game)
     return True
 

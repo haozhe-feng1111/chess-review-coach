@@ -32,3 +32,6 @@ backend/engine/bin/
 
 # --- OS noise ---
 .DS_Store
+.run/
+output/
+.playwright-cli/

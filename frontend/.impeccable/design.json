@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-19T04:37:31.998Z",
+  "title": "Design System: 国际象棋复盘教练 · 复盘界面",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "夜蓝底色",
+        "tonalRamp": [
+          "oklch(15.0% 0.0309 263.383)",
+          "oklch(26.4% 0.0309 263.383)",
+          "oklch(37.9% 0.0309 263.383)",
+          "oklch(49.3% 0.0309 263.383)",
+          "oklch(60.7% 0.0309 263.383)",
+          "oklch(72.1% 0.0309 263.383)",
+          "oklch(83.6% 0.0309 263.383)",
+          "oklch(95.0% 0.0309 263.383)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "分析面板",
+        "tonalRamp": [
+          "oklch(15.0% 0.0362 262.456)",
+          "oklch(26.4% 0.0362 262.456)",
+          "oklch(37.9% 0.0362 262.456)",
+          "oklch(49.3% 0.0362 262.456)",
+          "oklch(60.7% 0.0362 262.456)",
+          "oklch(72.1% 0.0362 262.456)",
+          "oklch(83.6% 0.0362 262.456)",
+          "oklch(95.0% 0.0362 262.456)"
+        ]
+      },
+      "panel-soft": {
+        "role": "neutral",
+        "displayName": "内层面板",
+        "tonalRamp": [
+          "oklch(15.0% 0.0487 263.185)",
+          "oklch(26.4% 0.0487 263.185)",
+          "oklch(37.9% 0.0487 263.185)",
+          "oklch(49.3% 0.0487 263.185)",
+          "oklch(60.7% 0.0487 263.185)",
+          "oklch(72.1% 0.0487 263.185)",
+          "oklch(83.6% 0.0487 263.185)",
+          "oklch(95.0% 0.0487 263.185)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "边界蓝灰",
+        "tonalRamp": [
+          "oklch(15.0% 0.0518 264.032)",
+          "oklch(26.4% 0.0518 264.032)",
+          "oklch(37.9% 0.0518 264.032)",
+          "oklch(49.3% 0.0518 264.032)",
+          "oklch(60.7% 0.0518 264.032)",
+          "oklch(72.1% 0.0518 264.032)",
+          "oklch(83.6% 0.0518 264.032)",
+          "oklch(95.0% 0.0518 264.032)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "浅色正文",
+        "tonalRamp": [
+          "oklch(15.0% 0.0145 264.497)",
+          "oklch(26.4% 0.0145 264.497)",
+          "oklch(37.9% 0.0145 264.497)",
+          "oklch(49.3% 0.0145 264.497)",
+          "oklch(60.7% 0.0145 264.497)",
+          "oklch(72.1% 0.0145 264.497)",
+          "oklch(83.6% 0.0145 264.497)",
+          "oklch(95.0% 0.0145 264.497)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "辅助蓝灰",
+        "tonalRamp": [
+          "oklch(15.0% 0.0440 264.240)",
+          "oklch(26.4% 0.0440 264.240)",
+          "oklch(37.9% 0.0440 264.240)",
+          "oklch(49.3% 0.0440 264.240)",
+          "oklch(60.7% 0.0440 264.240)",
+          "oklch(72.1% 0.0440 264.240)",
+          "oklch(83.6% 0.0440 264.240)",
+          "oklch(95.0% 0.0440 264.240)"
+        ]
+      },
+      "engine": {
+        "role": "primary",
+        "displayName": "引擎蓝",
+        "tonalRamp": [
+          "oklch(15.0% 0.1575 254.602)",
+          "oklch(26.4% 0.1575 254.602)",
+          "oklch(37.9% 0.1575 254.602)",
+          "oklch(49.3% 0.1575 254.602)",
+          "oklch(60.7% 0.1575 254.602)",
+          "oklch(72.1% 0.1575 254.602)",
+          "oklch(83.6% 0.1575 254.602)",
+          "oklch(95.0% 0.1575 254.602)"
+        ]
+      },
+      "coach": {
+        "role": "secondary",
+        "displayName": "教练金",
+        "tonalRamp": [
+          "oklch(15.0% 0.1295 79.849)",
+          "oklch(26.4% 0.1295 79.849)",
+          "oklch(37.9% 0.1295 79.849)",
+          "oklch(49.3% 0.1295 79.849)",
+          "oklch(60.7% 0.1295 79.849)",
+          "oklch(72.1% 0.1295 79.849)",
+          "oklch(83.6% 0.1295 79.849)",
+          "oklch(95.0% 0.1295 79.849)"
+        ]
+      },
+      "outcome-white": {
+        "role": "neutral",
+        "displayName": "白方浅色",
+        "tonalRamp": [
+          "oklch(15.0% 0.0070 247.896)",
+          "oklch(26.4% 0.0070 247.896)",
+          "oklch(37.9% 0.0070 247.896)",
+          "oklch(49.3% 0.0070 247.896)",
+          "oklch(60.7% 0.0070 247.896)",
+          "oklch(72.1% 0.0070 247.896)",
+          "oklch(83.6% 0.0070 247.896)",
+          "oklch(95.0% 0.0070 247.896)"
+        ]
+      },
+      "outcome-draw": {
+        "role": "neutral",
+        "displayName": "和棋灰色",
+        "tonalRamp": [
+          "oklch(15.0% 0.0400 256.788)",
+          "oklch(26.4% 0.0400 256.788)",
+          "oklch(37.9% 0.0400 256.788)",
+          "oklch(49.3% 0.0400 256.788)",
+          "oklch(60.7% 0.0400 256.788)",
+          "oklch(72.1% 0.0400 256.788)",
+          "oklch(83.6% 0.0400 256.788)",
+          "oklch(95.0% 0.0400 256.788)"
+        ]
+      },
+      "outcome-black": {
+        "role": "neutral",
+        "displayName": "黑方深色",
+        "tonalRamp": [
+          "oklch(15.0% 0.0410 260.031)",
+          "oklch(26.4% 0.0410 260.031)",
+          "oklch(37.9% 0.0410 260.031)",
+          "oklch(49.3% 0.0410 260.031)",
+          "oklch(60.7% 0.0410 260.031)",
+          "oklch(72.1% 0.0410 260.031)",
+          "oklch(83.6% 0.0410 260.031)",
+          "oklch(95.0% 0.0410 260.031)"
+        ]
+      },
+      "selected": {
+        "role": "primary",
+        "displayName": "选中蓝",
+        "tonalRamp": [
+          "oklch(15.0% 0.1208 253.769)",
+          "oklch(26.4% 0.1208 253.769)",
+          "oklch(37.9% 0.1208 253.769)",
+          "oklch(49.3% 0.1208 253.769)",
+          "oklch(60.7% 0.1208 253.769)",
+          "oklch(72.1% 0.1208 253.769)",
+          "oklch(83.6% 0.1208 253.769)",
+          "oklch(95.0% 0.1208 253.769)"
+        ]
+      },
+      "engine-text": {
+        "role": "primary",
+        "displayName": "引擎浅蓝",
+        "tonalRamp": [
+          "oklch(15.0% 0.0754 254.748)",
+          "oklch(26.4% 0.0754 254.748)",
+          "oklch(37.9% 0.0754 254.748)",
+          "oklch(49.3% 0.0754 254.748)",
+          "oklch(60.7% 0.0754 254.748)",
+          "oklch(72.1% 0.0754 254.748)",
+          "oklch(83.6% 0.0754 254.748)",
+          "oklch(95.0% 0.0754 254.748)"
+        ]
+      },
+      "board-dark": {
+        "role": "neutral",
+        "displayName": "深蓝灰棋格",
+        "tonalRamp": [
+          "oklch(15.0% 0.0529 262.697)",
+          "oklch(26.4% 0.0529 262.697)",
+          "oklch(37.9% 0.0529 262.697)",
+          "oklch(49.3% 0.0529 262.697)",
+          "oklch(60.7% 0.0529 262.697)",
+          "oklch(72.1% 0.0529 262.697)",
+          "oklch(83.6% 0.0529 262.697)",
+          "oklch(95.0% 0.0529 262.697)"
+        ]
+      },
+      "board-light": {
+        "role": "neutral",
+        "displayName": "浅蓝灰棋格",
+        "tonalRamp": [
+          "oklch(15.0% 0.0260 261.140)",
+          "oklch(26.4% 0.0260 261.140)",
+          "oklch(37.9% 0.0260 261.140)",
+          "oklch(49.3% 0.0260 261.140)",
+          "oklch(60.7% 0.0260 261.140)",
+          "oklch(72.1% 0.0260 261.140)",
+          "oklch(83.6% 0.0260 261.140)",
+          "oklch(95.0% 0.0260 261.140)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "页面标题",
+        "purpose": "应用及复盘页标题，保持功能性小标题层级。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "内容、状态与面板标题；连续解释使用较松行高。"
+      },
+      "label": {
+        "displayName": "标签",
+        "purpose": "筛选、表头、比例和辅助信息。"
+      },
+      "notation": {
+        "displayName": "棋谱",
+        "purpose": "走法列表中的 SAN。"
+      },
+      "engine-score": {
+        "displayName": "实时主评分",
+        "purpose": "白方视角的主评分；等宽数字，独立于下方原棋手视角证据。"
+      },
+      "engine-score-compact": {
+        "displayName": "窄屏主评分",
+        "purpose": "420px 及以下使用的主评分字号。"
+      },
+      "tree-move": {
+        "displayName": "实战主线着法",
+        "purpose": "树形棋谱的主线。"
+      },
+      "branch-move": {
+        "displayName": "分支着法",
+        "purpose": "嵌套变化的紧凑字号。"
+      },
+      "status": {
+        "displayName": "辅助状态",
+        "purpose": "引擎、资源、导出和保存反馈；不是正文默认字号。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "promotion-picker",
+        "value": "0 12px 30px #0008",
+        "purpose": "升变选择浮层覆盖棋盘时使用；普通面板不使用。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "board-animation",
+        "value": "0ms",
+        "purpose": "棋盘关闭走子动画，直接更新局面。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-controls-max",
+        "value": "420px"
+      },
+      {
+        "name": "header-and-evidence-min",
+        "value": "40rem"
+      },
+      {
+        "name": "workbench-stack-max",
+        "value": "900px"
+      },
+      {
+        "name": "review-notes-min",
+        "value": "64rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "刷新统计",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "真人统计区域的普通操作。",
+      "html": "<button class=\"ds-refresh\">刷新统计</button>",
+      "css": ".ds-refresh{border:1px solid var(--border,#24314c);border-radius:0.25rem;padding:0.5rem 0.75rem;background:transparent;color:var(--text,#e6ebf5);font:400 0.75rem/1rem -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;cursor:pointer;}.ds-refresh:hover{background:var(--panel-soft,#16223a)}.ds-refresh:focus-visible{outline:2px solid var(--engine,#4f9cf9);outline-offset:3px;}.ds-refresh:disabled{opacity:0.5;cursor:not-allowed}"
+    },
+    {
+      "name": "工作台普通操作",
+      "kind": "button",
+      "refersTo": "button-workbench",
+      "description": "棋谱导航、翻转、设置与次要操作共用；保持紧凑但可点击。",
+      "html": "<button class=\"ds-workbench-button\">翻转棋盘</button>",
+      "css": ".ds-workbench-button{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 12px;border:1px solid var(--border,#24314c);border-radius:6px;font:400 12px/20px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;white-space:nowrap;background:var(--panel,#111a2b);color:var(--text,#e6ebf5);cursor:pointer;}.ds-workbench-button:hover:not(:disabled){background:var(--panel-soft,#16223a);border-color:var(--muted,#93a1bd)}.ds-workbench-button:focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}.ds-workbench-button:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "应用引擎设置",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "设置表单中的提交操作。",
+      "html": "<button class=\"ds-apply\">应用并重新分析</button>",
+      "css": ".ds-apply{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 12px;border:1px solid var(--border,#24314c);border-radius:6px;font:400 12px/20px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;white-space:nowrap;background:var(--panel,#111a2b);color:var(--text,#e6ebf5);cursor:pointer;background:#245e9f;border-color:#397ec9;color:#fff}.ds-apply:hover:not(:disabled){background:var(--panel-soft,#16223a);border-color:var(--muted,#93a1bd)}.ds-apply:focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}.ds-apply:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "引擎设置字段",
+      "kind": "input",
+      "refersTo": "field-workbench",
+      "description": "两列标签与原生深色输入。预览不设资源数值；实际值和上限由当前设置及本机能力提供。",
+      "html": "<div class=\"ds-settings\"><div class=\"ds-settings-grid\"><label>分析方式<select><option>按时间</option><option>按深度</option><option>持续分析</option></select></label><label>线程 Threads<input type=\"number\" min=\"1\" required></label></div></div>",
+      "css": ".ds-settings{padding:14px;border-top:1px solid var(--border,#24314c);border-bottom:1px solid var(--border,#24314c);background:#0e1728;font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ds-settings label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted,#93a1bd)}.ds-settings input,.ds-settings select{width:100%;min-width:0;min-height:36px;background:var(--panel-soft,#16223a);border:1px solid var(--border,#24314c);border-radius:5px;padding:6px 8px;color:var(--text,#e6ebf5);font:400 13px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;color-scheme:dark;caret-color:var(--engine,#4f9cf9)}.ds-settings :is(input,select):focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}"
+    },
+    {
+      "name": "来源容器与标签",
+      "kind": "card",
+      "description": "既有引擎证据和教练解释保留独立来源；左边线现为 1px。",
+      "html": "<div class=\"ds-evidence\"><span class=\"ds-tag ds-engine-tag\">引擎证据 · Stockfish</span></div><div class=\"ds-explanation\"><span class=\"ds-tag ds-coach-tag\">教练说明</span></div>",
+      "css": ".ds-evidence,.ds-explanation{padding:0.75rem;border-radius:0 0.375rem 0.375rem 0;color:var(--text,#e6ebf5);font:400 0.875rem/1.25rem -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-evidence{border-left:1px solid var(--engine,#4f9cf9);background:rgba(79,156,249,0.06)}.ds-explanation{margin-top:0.75rem;border-left:1px solid var(--coach,#d9a441);background:rgba(217,164,65,0.06)}.ds-tag{display:inline-flex;align-items:center;white-space:nowrap;border:1px solid var(--border,#24314c);border-radius:9999px;padding:0.1rem 0.55rem;background:var(--panel-soft,#16223a);color:var(--muted,#93a1bd);font:400 0.72rem/1.3 -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-engine-tag{border-color:rgba(79,156,249,0.5);color:#a9cdfb}.ds-coach-tag{border-color:rgba(217,164,65,0.5);color:#eccb8a}"
+    },
+    {
+      "name": "分析内容标签",
+      "kind": "nav",
+      "description": "蓝色底边线标记当前标签，导出与切换入口并列；预览展示静态选中状态。",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\" aria-label=\"分析内容\"><button role=\"tab\" aria-selected=\"true\">分支棋谱</button><button role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">真人数据库</button><button class=\"ds-export\">导出 PGN</button></div>",
+      "css": ".ds-tabs{display:flex;align-items:center;border-top:1px solid var(--border,#24314c);border-bottom:1px solid var(--border,#24314c);padding:0 12px;gap:16px;background:var(--panel,#111a2b);font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-tabs button{background:transparent;border:0;cursor:pointer}.ds-tabs [role=tab]{padding:13px 1px;font:400 13px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;color:var(--muted,#93a1bd);border-bottom:2px solid transparent}.ds-tabs [aria-selected=true]{color:var(--text,#e6ebf5);border-bottom-color:var(--engine,#4f9cf9)}.ds-tabs .ds-export{margin-left:auto;font:400 11px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;color:var(--muted,#93a1bd);white-space:nowrap;padding:10px 0}.ds-export:hover{color:var(--text,#e6ebf5)}.ds-tabs button:focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}"
+    },
+    {
+      "name": "实时评分与候选线",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "主评分、搜索状态及候选线的层级；数字与着法为排版示例，不表示配置或分析结果。",
+      "html": "<section class=\"ds-live\"><div class=\"ds-live-head\"><button class=\"ds-switch\" aria-label=\"暂停引擎\" aria-pressed=\"true\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M7 4v12M13 4v12\" stroke=\"currentColor\" stroke-width=\"2.5\"/></svg></button><strong class=\"ds-score\">+0.12</strong><div><span>Stockfish</span> <span class=\"ds-engine-state\">正在分析</span><p class=\"ds-depth\">白方视角</p></div></div><div class=\"ds-pv\"><span class=\"ds-pv-score\">+0.12</span><div class=\"ds-pv-moves\"><button>1. e4</button> <button>e5</button></div><button class=\"ds-expand\" aria-label=\"展开第 1 条候选线\" aria-expanded=\"false\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"m3 6 5 5 5-5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg></button></div></section>",
+      "css": ".ds-live{background:var(--panel,#111a2b);border:1px solid var(--border,#24314c);border-radius:12px;overflow:hidden;color:var(--text,#e6ebf5);font:400 14px/20px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-live-head{display:flex;align-items:center;gap:12px;padding:14px 14px 9px}.ds-switch{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:34px;height:34px;border:1px solid #316394;border-radius:6px;color:#b5d7ff;background:#18375b;cursor:pointer}.ds-score{font:600 25px/32px ui-monospace,SFMono-Regular,\"SF Mono\",Menlo,Consolas,monospace;min-width:68px}.ds-engine-state{font-size:11px;font-weight:400;color:#a9cdfb}.ds-depth{margin:.125rem 0 0;font-size:12px;color:var(--muted,#93a1bd)}.ds-pv{display:flex;align-items:flex-start;gap:8px;padding:3px 8px 3px 14px;border-top:1px solid var(--border,#24314c);border-bottom:1px solid var(--border,#24314c);font-size:13px}.ds-pv-score{width:54px;flex-shrink:0;padding-top:8px;font-weight:600;font-family:ui-monospace,SFMono-Regular,\"SF Mono\",Menlo,Consolas,monospace}.ds-pv-moves{flex:1;min-width:0;max-height:34px;overflow:hidden;line-height:34px}.ds-pv-moves button{padding:0 3px;border:0;border-radius:3px;white-space:nowrap;line-height:32px;background:transparent;color:inherit;cursor:pointer}.ds-pv-moves button:hover{color:#d4e7ff;background:#23416a}.ds-expand{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:30px;height:34px;background:transparent;border:0;color:var(--muted,#93a1bd);cursor:pointer}.ds-live button:focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}@media(max-width:420px){.ds-live-head{gap:8px;padding-left:10px;padding-right:10px}.ds-score{font-size:22px;min-width:56px}.ds-engine-state{display:block}}"
+    },
+    {
+      "name": "嵌套分支棋谱",
+      "kind": "custom",
+      "description": "主线较大、变化略小；细线与缩进表达父子关系，蓝色表示当前着法。示例内容不是用户对局。",
+      "html": "<div class=\"ds-tree\"><div class=\"ds-tree-main\"><span class=\"ds-row-number\">1</span><div><button class=\"ds-move\">e4</button></div><div><button class=\"ds-move\">e5</button></div></div><div class=\"ds-variation\"><button class=\"ds-branch-toggle\" aria-label=\"收起 1... c5 分支\" aria-expanded=\"true\"><svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><path d=\"m3 6 5 5 5-5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg></button><div class=\"ds-branch-content\"><button class=\"ds-move ds-active\" aria-current=\"step\"><span class=\"ds-move-number\">1...</span>c5</button><button class=\"ds-move\"><span class=\"ds-move-number\">2.</span>Nf3</button></div></div></div>",
+      "css": ".ds-tree{background:var(--panel,#111a2b);color:var(--text,#e6ebf5);font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-tree-main{display:grid;grid-template-columns:44px 1fr 1fr;align-items:center;gap:3px;padding:0 10px;min-height:40px}.ds-row-number{text-align:center;font-size:12px;color:var(--muted,#93a1bd);font-variant-numeric:tabular-nums}.ds-move{display:inline-flex;align-items:baseline;gap:5px;min-height:34px;padding:5px 8px;border:0;border-radius:4px;font:400 15px/24px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;white-space:nowrap;background:transparent;color:inherit;cursor:pointer}.ds-move:hover{background:var(--panel-soft,#16223a)}.ds-move.ds-active{background:#245e9f;color:#fff}.ds-move-number{color:var(--muted,#93a1bd);font-size:12px}.ds-active .ds-move-number{color:#d1e7ff}.ds-variation{display:flex;min-width:0;margin:5px 8px 5px 18px;padding-left:4px;border-left:1px solid #53627d;background:rgba(147,161,189,.055)}.ds-branch-content{flex:1;min-width:0;padding:3px 0}.ds-variation .ds-move{font-size:13px;min-height:32px;padding:4px 5px}.ds-branch-toggle{display:flex;align-items:flex-start;padding:12px 3px 0;width:23px;flex-shrink:0;border:0;background:transparent;color:var(--muted,#93a1bd);cursor:pointer}.ds-tree button:focus-visible{outline:2px solid #a9cdfb;outline-offset:3px;}@media(max-width:420px){.ds-variation{margin-left:10px}}"
+    },
+    {
+      "name": "棋格与合法落点状态",
+      "kind": "custom",
+      "description": "四格仅展示棋格、上一步、选中与合法落点材质；完整棋盘由既有棋盘组件渲染。",
+      "html": "<div class=\"ds-board-states\"><div class=\"ds-square ds-light\" role=\"button\" tabindex=\"0\" aria-label=\"浅色棋格\">a1</div><div class=\"ds-square ds-dark\" role=\"button\" tabindex=\"0\" aria-label=\"深色棋格与合法落点\"><span class=\"ds-legal\">b1</span></div><div class=\"ds-square ds-dark\" role=\"button\" tabindex=\"0\" aria-label=\"上一步棋格\"><span class=\"ds-last\">a2</span></div><div class=\"ds-square ds-light\" role=\"button\" tabindex=\"0\" aria-label=\"选中棋格\"><span class=\"ds-selected\">b2</span></div></div>",
+      "css": ".ds-board-states{display:grid;grid-template-columns:repeat(2,1fr);width:180px;aspect-ratio:1;border-radius:.5rem;overflow:hidden;font:400 12px -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif}.ds-square{position:relative}.ds-square span{display:block;width:100%;height:100%}.ds-light{background:#c8d2e3;color:#4a5a78}.ds-dark{background:#4a5a78;color:#c8d2e3}.ds-last{background:rgba(217,164,65,.42)}.ds-selected{background:rgba(79,156,249,.65)}.ds-legal{background-image:radial-gradient(rgba(11,18,32,.35) 22%,transparent 24%)}.ds-square:focus-visible{outline:3px solid #145ca7;outline-offset:-3px}"
+    },
+    {
+      "name": "走法结果比例",
+      "kind": "card",
+      "description": "历史结果的文字与条段同在；此示例值只说明排版。嵌入数据库标签时由外层容器提供边框。",
+      "html": "<section class=\"ds-outcome-panel\"><div class=\"ds-outcomes\"><div class=\"ds-bar\" aria-hidden=\"true\"><span class=\"ds-white\"></span><span class=\"ds-draw\"></span><span class=\"ds-black\"></span></div><div class=\"ds-results\"><span>白胜 45.0%</span><span>和棋 10.0%</span><span>黑胜 45.0%</span></div></div></section>",
+      "css": ".ds-outcomes{color:var(--text,#e6ebf5);font:400 0.75rem/1rem -apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",\"Segoe UI\",Roboto,sans-serif;font-variant-numeric:tabular-nums}.ds-bar{display:flex;height:0.625rem;overflow:hidden;border:1px solid var(--muted,#93a1bd);border-radius:0.25rem}.ds-white{width:45%;background:var(--color-slate-100,oklch(96.8% 0.007 247.896))}.ds-draw{width:10%;background:var(--color-slate-400,oklch(70.4% 0.04 256.788))}.ds-black{width:45%;background:var(--color-slate-800,oklch(27.9% 0.041 260.031))}.ds-results{display:grid;grid-template-columns:1fr;gap:0.25rem;margin-top:0.375rem}.ds-outcome-panel{background:var(--panel,#111a2b);border:1px solid var(--border,#24314c);border-radius:.75rem;padding:1rem}",
+      "refersTo": "panel"
+    }
+  ],
+  "narrative": {
+    "northStar": "证据优先的复盘工作台",
+    "overview": "这是对现有前端的记录，主要证据来自可走子的分析工作台、引擎候选线、分支棋谱、复盘证据和真人统计。沿用深蓝底色、紧凑中文排版及有边界的分析区域；新增内容应接入这一界面，而不另建视觉风格。\n\n界面让用户在棋盘、着法和解释之间核对信息。颜色帮助辨认来源，正文和数值承担内容。页面的功能标题使用现有中文系统字体，不引入展示性大标题。",
+    "keyCharacteristics": [
+      "深蓝背景与逐层稍亮的容器。",
+      "蓝色标识引擎证据，金色标识教练说明。",
+      "蓝灰棋盘、蓝色当前着法和可折叠分支形成连续工作区。",
+      "评分使用等宽字，走法保持清晰层级，统计有明确文字标签。",
+      "紧凑控件与可见边框，优先阅读和操作。"
+    ],
+    "rules": [
+      {
+        "name": "The Source Color Rule",
+        "body": "引擎证据和教练说明使用各自的颜色及文字来源；真人历史结果使用独立的白、灰、深色比例条。",
+        "section": "colors"
+      },
+      {
+        "name": "The Written Meaning Rule",
+        "body": "颜色旁保留可读文字；结果始终写出白胜、和棋、黑胜，不依赖用户推断条段含义。",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "**Do** 沿用深蓝容器及引擎蓝、教练金的来源含义。",
+      "**Do** 在统计中同时呈现样本量、文字结果和比例条。",
+      "**Do** 让同类走法行保持相同的结果顺序和排版。",
+      "**Do** 保留表单标签与真人统计区域的键盘焦点。",
+      "**Do** 让棋盘当前局面、候选线与选中着法保持对应，并标明分析与保存状态。",
+      "**Do** 在手机尺寸保留完整棋盘、可操作的设置及分支层级。"
+    ],
+    "donts": [
+      "**Don't** 把真人历史结果渲染成引擎评分或教练判断。",
+      "**Don't** 用颜色替代白胜、和棋、黑胜文字。",
+      "**Don't** 添加装饰性渐变、发光或奖励动画；棋盘的合法走子圆点和圆环是功能标记。",
+      "**Don't** 把截图中的引擎参数、分数、对局内容或测试名称当作固定配置。"
+    ]
+  }
+}

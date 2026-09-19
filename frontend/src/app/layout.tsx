@@ -13,14 +13,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body className="min-h-screen">
         <header className="border-b" style={{ borderColor: "var(--border)" }}>
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
             <Link href="/" className="flex items-baseline gap-2">
-              <span className="text-lg font-semibold">国际象棋复盘教练</span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
+              <span className="whitespace-nowrap text-base font-semibold sm:text-lg">国际象棋复盘教练</span>
+              <span className="hidden text-xs sm:inline" style={{ color: "var(--muted)" }}>
                 证据优先 · 可解释
               </span>
             </Link>
-            <nav className="flex items-center gap-4 text-sm" style={{ color: "var(--muted)" }}>
+            <nav className="flex shrink-0 items-center gap-4 whitespace-nowrap text-sm" style={{ color: "var(--muted)" }}>
               <Link href="/" className="hover:text-white">
                 导入对局
               </Link>

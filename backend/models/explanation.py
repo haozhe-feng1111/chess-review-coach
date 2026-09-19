@@ -69,3 +69,4 @@ class GameSummaryRecord(BaseModel):
     model: Optional[str] = None
     generated_at: Optional[datetime] = None
     cached: bool = False
+    validation_warnings: List[str] = Field(default_factory=list)

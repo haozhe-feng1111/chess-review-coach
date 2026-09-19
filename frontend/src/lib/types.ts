@@ -243,6 +243,7 @@ export interface GameSummaryRecord {
   model: string | null;
   generated_at: string | null;
   cached: boolean;
+  validation_warnings?: string[];
 }
 
 export interface ExampleMoment {
@@ -381,4 +382,18 @@ export interface HealthResponse {
   pass1_depth: number;
   pass2_depth: number;
   max_critical_moments: number;
+}
+/** Historical, rated Lichess games; outcome colors never depend on board orientation. */
+export interface ExplorerCounts { white: number; draws: number; black: number }
+export interface ExplorerQuery {
+  fen: string; ratings: number[]; speeds: string[]; since: string | null; until: string | null;
+}
+export interface ExplorerResponse {
+  status: "ok" | "auth_required" | "rate_limited" | "unavailable";
+  query: ExplorerQuery;
+  data: (ExplorerCounts & {
+    moves: (ExplorerCounts & { uci: string; san: string; average_rating: number | null })[];
+    opening: string | null; fetched_at: string; source: "lichess_rated_games";
+  }) | null;
+  cached: boolean; message_zh: string; retry_after: number | null;
 }

@@ -32,6 +32,21 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
+class ExplorerCacheEntry(Base):
+    __tablename__ = "explorer_cache"
+    cache_key = Column(String(64), primary_key=True)
+    fetched_at = Column(DateTime, nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+
+
+class Study(Base):
+    """Separate from review replacement: re-analysis must not erase user branches."""
+    __tablename__ = "studies"
+    game_id = Column(String(64), primary_key=True)
+    revision = Column(Integer, nullable=False, default=1)
+    payload = Column(JSON, nullable=False)
+
+
 def _utcnow() -> datetime:
     return datetime.utcnow()
 

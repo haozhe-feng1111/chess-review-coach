@@ -1,6 +1,6 @@
 """Grounding guards for LLM output.
 
-Faithfulness is enforced structurally, not by trusting the prompt:
+Conservative checks supplement the prompt; they do not prove prose semantics:
 
 * the response must validate against :class:`LLMExplanation`,
 * every move the model names in a *factual* field must exist in the evidence,
@@ -8,8 +8,8 @@ Faithfulness is enforced structurally, not by trusting the prompt:
 * the model may never claim a best move other than the engine's,
 * reported confidence is capped, because prose is not evidence.
 
-A rejected response is never shown: the caller falls back to the deterministic
-explanation, so a hallucination can cost an explanation but never the review.
+A rejected response is replaced with a deterministic explanation. Engine evidence
+remains the source of truth even when prose passes these limited checks.
 """
 
 import json
@@ -24,33 +24,39 @@ from models.explanation import LLMExplanation
 #: pushes ("e4") are excluded on purpose because they are indistinguishable from square
 #: names in prose, and flagging every square would produce false rejections.
 MOVE_TOKEN_PATTERN = re.compile(
-    r"\b(?:"
+    r"(?<![A-Za-z0-9])(?:"
     r"[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?"
-    r"|[a-h][1-8]x[a-h][1-8](?:=[QRBN])?[+#]?"
+    r"|[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?"
     r"|[a-h][1-8]=[QRBN][+#]?"
     r"|[O0]-[O0](?:-[O0])?[+#]?"
-    r")\b"
+    r")(?![A-Za-z0-9])"
 )
 
 #: Confidence can never exceed this: prose cannot be more certain than the evidence.
 MAX_REPORTED_CONFIDENCE = 0.9
 
 #: Fields that state facts about the game and therefore must not invent moves.
-FACTUAL_FIELDS = ("what_happened", "best_move_explanation", "summary")
+FACTUAL_FIELDS = ("what_happened", "best_move_explanation", "summary", "why_it_matters",
+                  "likely_human_error", "better_thinking_process", "general_lesson")
 
 #: 只在"模型明确给出建议"的句式里抓着法。
 #:
 #: 早期版本是"best_move_explanation 里出现的任何着法都必须是引擎着法"，结果把这类完全正确的
 #: 句子也判成了幻觉：「对手走 Ba6 之后 Rd3 受攻，你走了 Rd1，但引擎推荐 g6」——Ba6 是对手的
 #: 着法，本来就在我们给它的概念证据里。所以现在只在下面这些"推荐/建议"句式后面抓，
-#: 抓到的着法必须是引擎给的、或者是实战走法（用于对比）。
-_SAN = r"[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|[a-h][1-8]x[a-h][1-8](?:=[QRBN])?[+#]?|[a-h][1-8]=[QRBN][+#]?|[O0]-[O0](?:-[O0])?[+#]?"
+#: 被明确推荐的着法必须是引擎当前首选；对比叙述仍可以提及实战及后续着法。
+_SAN = r"(?:[KQRBN][a-h]?[1-8]?x?[a-h][1-8][+#]?|[a-h](?:x[a-h])?[1-8](?:=[QRBN])?[+#]?|[O0]-[O0](?:-[O0])?[+#]?)(?![A-Za-z0-9])"
+ALL_MOVE_TOKENS = re.compile(r"(?<![A-Za-z0-9])" + _SAN)
+# A square alone is not a move. Bare pawn pushes are checked after move verbs
+# and in numbered variations, including when touching Chinese punctuation/text.
+PAWN_MOVE_CONTEXT = re.compile(r"(?:走了?|下了|之后是|接着是|\d+\.{1,3})\s*(" + _SAN + r")")
 RECOMMENDATION_PATTERNS = [
     re.compile(r"推荐\s*(?:走|着法|着|的是|是|为|：|:)?\s*(" + _SAN + r")"),
     re.compile(r"建议\s*(?:走|着法|着|的是|是|为|：|:)?\s*(" + _SAN + r")"),
     re.compile(r"(?:更好|最佳|正确|最优)的?(?:走法|着法|选择|一步)\s*(?:是|为|：|:)?\s*(" + _SAN + r")"),
     re.compile(r"(?:应该|应当|应|可以|不如)\s*走\s*(" + _SAN + r")"),
     re.compile(r"正着\s*(?:是|为|：|:)?\s*(" + _SAN + r")"),
+    re.compile(r"(" + _SAN + r")\s*(?:才是|是)?\s*(?:更好|最佳|最优|正确)(?:的?(?:走法|着法|选择))?"),
 ]
 
 
@@ -76,7 +82,7 @@ def validate_explanation(
     #     包括概念证据里的句子（例如 "Ba6 now attacks Rd3"）和这盘棋的历史着法。
     #   * engine_moves  —— 只有这些着法可以被当作"引擎推荐"。模型不能自己发明一个更好的走法。
     evidence_moves = _evidence_moves(evidence)
-    engine_moves = _allowed_moves(evidence)
+    engine_moves = {_normalize(evidence.engine.best_move_san or "")}
     allowed_concepts = {concept.type.value for concept in evidence.concepts}
 
     unknown_in_facts = _unknown_moves(
@@ -94,6 +100,16 @@ def validate_explanation(
     if contradiction:
         return GroundingReport(ok=False, reason=contradiction)
 
+    text = " ".join(getattr(explanation, name) for name in FACTUAL_FIELDS)
+    numeric_error = validate_numbers(text, evidence.to_llm_payload()["engine"])
+    if numeric_error:
+        return GroundingReport(ok=False, reason=numeric_error)
+    # Check ordering too: quoting real numbers in reverse still invents a change.
+    for match in re.finditer(r"期望得分从\s*(\d+(?:\.\d+)?[%％]?)\s*(?:下降|降|掉|变|升)?到\s*(\d+(?:\.\d+)?[%％]?)", text):
+        if not (_matches_number(match[1], evidence.engine.expected_score_before)
+                and _matches_number(match[2], evidence.engine.expected_score_after)):
+            return GroundingReport(ok=False, reason="解释中的期望得分变化与引擎证据不一致。")
+
     warnings: List[str] = []
     dropped: List[str] = []
     kept_tags: List[str] = []
@@ -106,24 +122,6 @@ def validate_explanation(
     if dropped:
         warnings.append(
             "已移除证据不支持的概念标签：{}".format(", ".join(sorted(set(dropped))))
-        )
-
-    unknown_elsewhere = _unknown_moves(
-        " ".join(
-            [
-                explanation.why_it_matters,
-                explanation.likely_human_error,
-                explanation.better_thinking_process,
-                explanation.general_lesson,
-            ]
-        ),
-        evidence_moves,
-    )
-    if unknown_elsewhere:
-        warnings.append(
-            "解释的推理部分提到了证据之外的着法：{}（已保留但请注意核对）".format(
-                ", ".join(sorted(unknown_elsewhere))
-            )
         )
 
     confidence = min(MAX_REPORTED_CONFIDENCE, max(0.0, explanation.confidence))
@@ -142,17 +140,18 @@ def validate_explanation(
 
 
 def validate_game_summary(
-    summary_text: str, allowed_moves: Set[str], event_count: int
+    summary_text: str, allowed_moves: Set[str], event_count: int, numbers=None
 ) -> List[str]:
-    """Warnings for a game-level summary (no hard rejection: it is prose over a list)."""
+    """Return grounding violations; the caller must fall back when nonempty."""
     warnings: List[str] = []
     unknown = _unknown_moves(summary_text, allowed_moves)
     if unknown:
         warnings.append(
             "整体总结提到了清单之外的着法：{}".format(", ".join(sorted(unknown)))
         )
-    if event_count < 3:
-        warnings.append("失误样本过少，整体结论仅供参考。")
+    numeric_error = validate_numbers(summary_text, numbers or {})
+    if numeric_error:
+        warnings.append(numeric_error)
     return warnings
 
 
@@ -161,18 +160,17 @@ def _contradicts_engine(
 ) -> Optional[str]:
     """模型有没有把"引擎之外的着法"说成是自己推荐的走法。
 
-    只看明确的建议句式（见 RECOMMENDATION_PATTERNS），并且允许实战走法本身出现在句子里
-    （"引擎推荐 Rdd1，而不是你走的 Rad1" 是正常的对比）。
+    只看明确的建议句式（见 RECOMMENDATION_PATTERNS）。实战及后续着法可以被叙述，
+    但不能因此被当作当前局面的引擎首选。
     """
     if not evidence.engine.best_move_san:
         return None
-    played = _normalize(evidence.played_move.san)
-    for field_name in ("best_move_explanation", "summary", "what_happened"):
+    for field_name in FACTUAL_FIELDS:
         text = getattr(explanation, field_name, "") or ""
         for pattern in RECOMMENDATION_PATTERNS:
             for match in pattern.finditer(text):
                 token = _normalize(match.group(1))
-                if not token or token in engine_moves or token == played:
+                if not token or token in engine_moves:
                     continue
                 return (
                     "AI 把「{}」说成了推荐走法，但引擎给出的不是这一手（引擎：{}）。".format(
@@ -189,7 +187,7 @@ def _evidence_moves(evidence: AnalysisEvidence) -> Set[str]:
     编造。FEN 里不含 SAN 形状的记号，所以不会被误判成着法。
     """
     payload_text = json.dumps(evidence.to_llm_payload(), ensure_ascii=False)
-    tokens = {_normalize(match.group(0)) for match in MOVE_TOKEN_PATTERN.finditer(payload_text)}
+    tokens = {_normalize(match.group(0)) for match in ALL_MOVE_TOKENS.finditer(payload_text)}
     tokens.discard("")
     return tokens | _allowed_moves(evidence)
 
@@ -218,7 +216,42 @@ def _unknown_moves(text: str, allowed: Set[str]) -> Set[str]:
         token = _normalize(match.group(0))
         if token and token not in allowed:
             found.add(match.group(0).strip())
+    for pattern in [PAWN_MOVE_CONTEXT] + RECOMMENDATION_PATTERNS:
+        for match in pattern.finditer(text):
+            token = _normalize(match.group(1))
+            if token not in allowed:
+                found.add(match.group(1))
     return found
+
+
+def _matches_number(token: str, value: float) -> bool:
+    token = token.strip()
+    scale = 100 if token.endswith(("%", "％")) else 1
+    token = token.rstrip("%％")
+    decimals = len(token.split(".")[1]) if "." in token else 0
+    return abs(float(token) / scale - value) <= 0.5 * 10 ** -decimals / scale + 1e-8
+
+
+def validate_numbers(text: str, evidence) -> Optional[str]:
+    """Reject unsupported decimal/percentage claims, allowing display rounding.
+
+    This does not attempt to interpret all Chinese claims or integer move counts.
+    """
+    values = []
+    def visit(value):
+        if isinstance(value, dict):
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+        elif isinstance(value, (float, int)) and not isinstance(value, bool):
+            values.append(value)
+    visit(evidence)
+    for match in re.finditer(r"(?<![A-Za-z0-9.])[+-]?\d+(?:\.\d+[%％]?|[%％])(?![A-Za-z0-9.])", text):
+        if not any(_matches_number(match[0], value) for value in values):
+            return "解释中出现了引擎证据不支持的数值：{}".format(match[0])
+    return None
 
 
 def _normalize(token: str) -> str:

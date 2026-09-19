@@ -12,6 +12,7 @@ uvicorn[standard]>=0.30,<0.40
 # --- 棋类规则 ---
 # PyPI 上最新的发行版号是 1.999（上游 master），模块内部版本号仍报 1.11.x
 python-chess>=1.11,<2
+psutil>=5.9,<8
 
 # --- 数据校验与配置 ---
 pydantic>=2.7,<3

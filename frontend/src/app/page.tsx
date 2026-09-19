@@ -9,11 +9,11 @@ import { formatLoss, severityLabel, SEVERITY_BADGE } from "@/lib/labels";
 import type { Color, GameListItem, HealthResponse, LLMTestResult } from "@/lib/types";
 
 const SAMPLE_PGN = `[Event "示例对局"]
-[White "你"]
-[Black "对手"]
-[Result "0-1"]
+[White "示例白方"]
+[Black "示例黑方"]
+[Result "1-0"]
 
-1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 0-1`;
+1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0`;
 
 type SideChoice = "auto" | Color;
 
@@ -264,7 +264,10 @@ export default function HomePage() {
             </button>
             <button
               type="button"
-              onClick={() => setPgn(SAMPLE_PGN)}
+              onClick={() => {
+                setPgn(SAMPLE_PGN);
+                setSide("black");
+              }}
               className="rounded border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--border)" }}
             >

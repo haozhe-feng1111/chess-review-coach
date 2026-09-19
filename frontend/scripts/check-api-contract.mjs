@@ -16,9 +16,9 @@ const API = (process.argv[2] ?? process.env.NEXT_PUBLIC_API_BASE ?? "http://127.
 const PGN = `[Event "合约检查"]
 [White "Contract"]
 [Black "Check"]
-[Result "0-1"]
+[Result "1-0"]
 
-1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 0-1`;
+1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0`;
 
 let failures = 0;
 let checks = 0;
@@ -60,7 +60,8 @@ async function main() {
   check("health.pass1_depth", health.pass1_depth, isNumber, "number");
   if (!health.engine?.available) {
     console.error("  ✗ 引擎不可用，无法继续合约检查");
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   section("提交分析");
@@ -206,10 +207,10 @@ async function main() {
   console.log(
     `\n${failures === 0 ? "✓" : "✗"} 合约检查结束：${checks - failures}/${checks} 项通过`,
   );
-  process.exit(failures === 0 ? 0 : 1);
+  process.exitCode = failures === 0 ? 0 : 1;
 }
 
 main().catch((error) => {
   console.error(`\n✗ 合约检查失败: ${error.message}`);
-  process.exit(1);
+  process.exitCode = 1;
 });

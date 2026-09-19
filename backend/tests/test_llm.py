@@ -34,11 +34,11 @@ from models.explanation import LLMExplanation
 VALID_PAYLOAD: Dict[str, object] = {
     "summary": "3...Nf6 是严重失误，它让白方立刻有一步杀棋。",
     "what_happened": "你走了 Nf6，白方的 Qxf7# 立刻将杀。",
-    "why_it_matters": "期望得分从 0.53 掉到 0.00。",
+    "why_it_matters": "期望得分从 0.775 掉到 0.00。",
     "likely_human_error": "你没有先检查对手的强制手。",
     "better_thinking_process": "1. 对手有没有将军？2. 对手有没有吃子？",
     "general_lesson": "每走一步前先检查对手的将军、吃子和威胁。",
-    "best_move_explanation": "引擎推荐 g6，为 f7 的将军留出退路。",
+    "best_move_explanation": "引擎推荐 g6，攻击白后。",
     "concept_tags": ["mating_threat"],
     "confidence": 0.8,
 }
@@ -475,3 +475,52 @@ def test_deepseek_provider_reports_network_errors():
     result = provider.complete_json(system="s", user="u")
     assert result.ok is False
     assert result.error and ("network_error" in result.error or "timeout" in result.error)
+
+
+@pytest.mark.parametrize("text", ["推荐a6。", "应该走exd5。", "最佳走法是Nf6。", "推荐Qxd8。", "a6是更好的走法。"])
+def test_root_recommendation_cannot_be_invented_played_or_a_continuation(text):
+    report = validate_explanation(LLMExplanation.model_validate({**VALID_PAYLOAD, "best_move_explanation": text}), build_evidence())
+    assert report.rejected
+
+
+@pytest.mark.parametrize("field,text", [
+    ("what_happened", "你走了a6。"), ("summary", "之后是exd5。"),
+    ("general_lesson", "白方的Qh7#会将杀。"),
+    ("why_it_matters", "期望得分从0.99掉到0.98。"),
+    ("why_it_matters", "期望得分从0.00升到0.775。"),
+])
+def test_unknown_moves_and_numbers_in_any_prose_fall_back(field, text):
+    payload = {**VALID_PAYLOAD, field: text}
+    provider = FakeProvider([LLMResult(data=payload), LLMResult(data=payload)])
+    result = CoachExplainer(provider=provider).explain_moment(build_evidence())
+    assert result.source is ExplanationSource.RULES
+    assert result.validation_warnings
+
+
+def test_square_references_and_rounded_scores_remain_valid():
+    payload = {**VALID_PAYLOAD, "what_happened": "a6 格子为空；你走了Nf6。", "why_it_matters": "期望得分从77.5%降到0%。"}
+    assert validate_explanation(LLMExplanation.model_validate(payload), build_evidence()).ok
+
+
+@pytest.mark.parametrize("change", ["score", "pv", "concept", "history"])
+def test_cache_includes_complete_prompt_evidence(change):
+    evidence = build_evidence()
+    original = moment_cache_key(evidence, "model")
+    if change == "score":
+        evidence.engine.evaluation_before = 0.45
+    elif change == "pv":
+        evidence.engine.best_line_san.append("Rxd8")
+    elif change == "concept":
+        evidence.concepts[0].evidence.append("new verified observation")
+    else:
+        evidence.move_history_san.append("e4")
+    assert moment_cache_key(evidence, "model") != original
+
+
+@pytest.mark.parametrize("field,text", [("summary", "你错过了Qh7#。"), ("practice_advice", "推荐a6。"), ("main_patterns", "期望得分损失0.99。")])
+def test_summary_grounding_failures_are_not_silently_ignored(field, text):
+    payload = {"summary": "这次漏掉了强制手。", "main_patterns": [], "practice_advice": [], "confidence": 0.6}
+    payload[field] = text if field == "summary" else [text]
+    result = CoachExplainer(provider=FakeProvider([LLMResult(data=payload)])).summarize_game(_review_with_one_moment())
+    assert result.source is ExplanationSource.RULES
+    assert result.validation_warnings

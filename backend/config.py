@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_tokens: int = 2000
 
+    # Optional alternative to browser PKCE login; never exposed to the frontend.
+    lichess_api_token: str = ""
+    lichess_login_hint: str = ""
+    lichess_timeout: float = 12.0
+    lichess_token_file: str = str(BACKEND_DIR / "data" / "lichess-token.json")
+
     # --- Storage ---
     # Relative paths resolve against the backend directory.
     database_url: str = "sqlite:///data/chess_coach.db"
@@ -89,8 +95,9 @@ class Settings(BaseSettings):
         if self.stockfish_path.strip():
             candidate = Path(self.stockfish_path).expanduser()
             return candidate if candidate.exists() else None
-        if DEFAULT_STOCKFISH_PATH.exists():
-            return DEFAULT_STOCKFISH_PATH
+        for candidate in (DEFAULT_STOCKFISH_PATH, DEFAULT_STOCKFISH_PATH.with_suffix(".exe")):
+            if candidate.is_file():
+                return candidate
         which = shutil.which("stockfish")
         return Path(which) if which else None
 

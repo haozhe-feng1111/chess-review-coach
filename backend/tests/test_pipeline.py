@@ -43,6 +43,26 @@ FAST_CONFIG = PipelineConfig(
 )
 
 
+def test_deep_pass_clears_annotations_when_a_mistake_becomes_good(monkeypatch):
+    from tests.test_llm import build_evidence
+
+    game = parse_pgn('1. e4 *', player_color=Color.WHITE)
+    analyzer = GameAnalyzer(None)
+    analyzer._pov_color = Color.WHITE
+    positions, slots = analyzer._build_slots(game)
+    evidence = build_evidence()
+    monkeypatch.setattr("analysis.pipeline.evidence_builder.build_engine_evidence", lambda **_: evidence.engine)
+    monkeypatch.setattr("analysis.pipeline.detect_concepts", lambda _: evidence.concepts)
+    monkeypatch.setattr("analysis.pipeline.classify_decision_errors", lambda _: ["shallow error"])
+    analyzer._assemble_and_classify(positions, slots, deep=False)
+    assert slots[0].severity.is_problem and slots[0].concepts and slots[0].errors
+    evidence.engine.expected_score_loss = 0
+    evidence.engine.is_engine_best = True
+    analyzer._assemble_and_classify(positions, slots, deep=True)
+    assert not slots[0].severity.is_problem
+    assert slots[0].concepts == slots[0].errors == []
+
+
 @requires_engine
 def test_pipeline_flags_the_scholars_mate_blunder(engine):
     game = parse_pgn(SCHOLARS_MATE, player_color=Color.BLACK)

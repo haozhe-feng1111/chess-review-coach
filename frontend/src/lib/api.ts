@@ -15,6 +15,8 @@ import type {
   LLMTestResult,
   MomentExplanation,
   MomentLines,
+  ExplorerQuery,
+  ExplorerResponse,
   ProfileSummary,
 } from "./types";
 
@@ -33,7 +35,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
@@ -77,6 +79,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  explorer: (query: ExplorerQuery, signal?: AbortSignal) =>
+    request<ExplorerResponse>("/api/lichess/explorer", { method: "POST", body: JSON.stringify(query), signal }),
   health: () => request<HealthResponse>("/api/health"),
 
   /** 把某个关键局面的引擎线路展开成可逐步演示的局面序列。 */

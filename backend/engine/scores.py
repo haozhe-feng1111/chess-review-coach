@@ -5,8 +5,9 @@ into the player-perspective numbers used everywhere else.
 
 Why expected score instead of centipawn loss: a 100cp drop at +0.3 and a 100cp drop
 at +9.0 are completely different mistakes, while ``expected_score = P(win) +
-0.5 * P(draw)`` is already calibrated against human outcomes. Centipawns are still
-carried along for display.
+0.5 * P(draw)`` gives a bounded measure. Stockfish WDL describes engine self-play
+under its calibration conditions, not a human player's win probability.
+Centipawns are still carried along for display.
 """
 
 import math

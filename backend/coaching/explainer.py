@@ -38,7 +38,7 @@ from models.review import GameReview
 logger = logging.getLogger(__name__)
 
 #: Bumped whenever the prompts change, so cached text is never mixed across versions.
-PROMPT_VERSION = "2024-11-mvp-4"
+PROMPT_VERSION = "2026-09-grounding-5"
 
 MAX_LLM_ATTEMPTS = 2
 
@@ -226,15 +226,21 @@ class CoachExplainer:
 
         allowed = _allowed_summary_moves(events)
         warnings = grounding.validate_game_summary(
-            " ".join([parsed.summary] + list(parsed.main_patterns)), allowed, len(events)
+            " ".join([parsed.summary] + list(parsed.main_patterns) + list(parsed.practice_advice)),
+            allowed, len(events), numbers={"events": events, "meta": meta},
         )
+        if warnings:
+            return GameSummaryRecord(source=ExplanationSource.RULES, explanation=rule_based,
+                                     generated_at=datetime.utcnow(), validation_warnings=warnings)
         if len(events) < 3:
             parsed = parsed.model_copy(update={"confidence": min(parsed.confidence, 0.5)})
+            warnings.append("失误样本过少，整体结论仅供参考。")
         return GameSummaryRecord(
             source=ExplanationSource.LLM,
             explanation=parsed,
             model=response.model,
             generated_at=datetime.utcnow(),
+            validation_warnings=warnings,
         )
 
 
@@ -270,12 +276,7 @@ def moment_cache_key(evidence: AnalysisEvidence, model: str) -> str:
         {
             "prompt": PROMPT_VERSION,
             "model": model,
-            "fen": evidence.position.fen,
-            "played": evidence.played_move.uci,
-            "best": evidence.engine.best_move_uci,
-            "loss": evidence.engine.expected_score_loss,
-            "concepts": sorted(concept.type.value for concept in evidence.concepts),
-            "errors": sorted(error.type.value for error in evidence.decision_errors),
+            "evidence": evidence.to_llm_payload(),
         },
         sort_keys=True,
         ensure_ascii=False,

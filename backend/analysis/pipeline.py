@@ -252,6 +252,9 @@ class GameAnalyzer:
                 continue
 
             slot.evidence = evidence
+            # The deep pass may overturn a shallow mistake classification.
+            slot.concepts = []
+            slot.errors = []
             slot.severity = self._thresholds.severity.classify(
                 evidence.expected_score_loss, evidence.is_engine_best
             )

@@ -62,8 +62,11 @@ export default function EvidencePanel({ engine, engineName, playedSan }: Evidenc
               engine.mate_after,
             )}`}
           />
-          <WdlRow label="走子前 WDL" wdl={engine.wdl_before} />
-          <WdlRow label="走子后 WDL" wdl={engine.wdl_after} />
+          <WdlRow label="走子前引擎胜/和/负估计" wdl={engine.wdl_before} />
+          <WdlRow label="走子后引擎胜/和/负估计" wdl={engine.wdl_after} />
+          <p className="my-2 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+            这是引擎模型的估计；真人历史结果请看「真人实战统计」。
+          </p>
           <Row
             label="期望得分"
             value={`${engine.expected_score_before.toFixed(3)} → ${engine.expected_score_after.toFixed(3)}`}

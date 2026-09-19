@@ -49,14 +49,7 @@ export default function LineWalker({
       </div>
     );
   }
-  if (!lines) return null;
-
-  const walk: LineWalk = kind === "best" ? lines.best : lines.played;
-  const total = walk.steps.length;
-  const currentStep = index > 0 ? walk.steps[index - 1] : null;
-  const nextStep = index < total ? walk.steps[index] : null;
-
-  if (!active) {
+  if (!active || !lines) {
     return (
       <div className="panel-soft flex flex-wrap items-center gap-2 p-3 text-xs">
         <button
@@ -68,11 +61,17 @@ export default function LineWalker({
           ▶ 演示引擎线路
         </button>
         <span style={{ color: "var(--muted)" }}>
-          在棋盘上把引擎推荐的后续走一遍（{lines.best.steps.length} 步），走完可以随时回到实战。
+          在棋盘上把引擎推荐的后续走一遍
+          {lines ? `（${lines.best.steps.length} 步）` : ""}，走完可以随时回到实战。
         </span>
       </div>
     );
   }
+
+  const walk: LineWalk = kind === "best" ? lines.best : lines.played;
+  const total = walk.steps.length;
+  const currentStep = index > 0 ? walk.steps[index - 1] : null;
+  const nextStep = index < total ? walk.steps[index] : null;
 
   return (
     <div
