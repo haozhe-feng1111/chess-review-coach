@@ -131,11 +131,16 @@ def explain_moment(
     return ExplanationResponse(ply=ply, explanation=explanation)
 
 
-@router.get("/games/{game_id}/moments/{ply}/lines", response_model=MomentLinesResponse)
+@router.get("/games/{game_id}/moves/{ply}/lines", response_model=MomentLinesResponse)
+@router.get(
+    "/games/{game_id}/moments/{ply}/lines",
+    response_model=MomentLinesResponse,
+    include_in_schema=False,
+)
 def moment_lines(
     game_id: str, ply: int, svc: AnalysisService = Depends(service)
 ) -> MomentLinesResponse:
-    """返回该关键局面的引擎线路与实战线路，供前端逐步演示。"""
+    """返回该局面的引擎线路与实战线路，供前端逐步演示（任何一手都可以查）。"""
     lines = svc.moment_lines(game_id, ply)
     if lines is None:
         raise HTTPException(

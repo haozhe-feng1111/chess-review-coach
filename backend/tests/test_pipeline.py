@@ -161,6 +161,34 @@ def test_best_move_is_marked_when_the_player_followed_it(engine):
 
 
 @requires_engine
+def test_every_move_carries_a_walkable_line(engine):
+    """每一手都要带后续线路，而且从该局面能一步步走完（复盘页的线路演示靠这个）。"""
+    import chess
+
+    game = parse_pgn(LEGAL_GAME, player_color=Color.WHITE)
+    review = GameAnalyzer(engine, cache=InMemoryCache(), config=FAST_CONFIG).analyze(
+        game, "test-lines"
+    )
+
+    for move in review.moves:
+        assert move.best_line_uci, "第 {} 手缺少引擎线路".format(move.ply)
+        assert move.best_line_uci[0] == move.best_move_uci
+        assert len(move.best_line_san) == len(move.best_line_uci)
+        assert move.played_line_uci and move.played_line_uci[0] == move.uci
+        assert len(move.played_line_san) == len(move.played_line_uci)
+
+        # 两条线路都必须能从「走子之前」的局面一步步走完
+        for line in (move.best_line_uci, move.played_line_uci):
+            board = chess.Board(move.fen_before)
+            for uci in line:
+                candidate = chess.Move.from_uci(uci)
+                assert candidate in board.legal_moves, (
+                    "第 {} 手的线路里有不合法的着法 {}".format(move.ply, uci)
+                )
+                board.push(candidate)
+
+
+@requires_engine
 def test_second_run_is_served_from_the_cache(engine):
     cache = InMemoryCache()
     game = parse_pgn(LEGAL_GAME, player_color=Color.WHITE)

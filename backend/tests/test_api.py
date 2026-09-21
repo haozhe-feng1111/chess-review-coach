@@ -167,6 +167,17 @@ def test_full_analysis_flow(api):
     # 关键局面里白方被将杀，实战线路必然以将杀收尾
     assert lines["played"]["ends_in_mate"] is True
 
+    # 线路演示：任何一手都能查，不限于关键局面
+    any_ply = review["moves"][0]["ply"]
+    lines_any = client.get("/api/games/{}/moves/{}/lines".format(game_id, any_ply)).json()
+    assert lines_any["best"]["steps"], "每一手都应该能展开引擎线路"
+    assert lines_any["best"]["steps"][0]["san"] == review["moves"][0]["best_move_san"]
+    assert lines_any["played"]["steps"][0]["san"] == review["moves"][0]["san"]
+    # 旧路径仍然可用（前端早期版本用的是它）
+    assert (
+        client.get("/api/games/{}/moments/{}/lines".format(game_id, any_ply)).status_code == 200
+    )
+
     summary = client.get("/api/games/{}/summary".format(game_id)).json()["summary"]
     assert summary["source"] == "rules"
     assert summary["explanation"]["summary"]

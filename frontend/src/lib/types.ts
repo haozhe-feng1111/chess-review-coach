@@ -127,6 +127,12 @@ export interface MoveAssessment {
   is_engine_best: boolean;
   evaluation_before: number | null;
   expected_score_before: number | null;
+  /** 引擎推荐着法及其后续（第一个元素即 best_move_uci）。 */
+  best_line_uci: string[];
+  best_line_san: string[];
+  /** 实战着法及其后续（第一个元素即本手 uci）。 */
+  played_line_uci: string[];
+  played_line_san: string[];
   concept_tags: string[];
   decision_error_tags: string[];
   is_critical: boolean;

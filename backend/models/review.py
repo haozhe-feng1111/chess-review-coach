@@ -71,6 +71,13 @@ class MoveAssessment(BaseModel):
     #: Evaluation of the position before the move (player perspective).
     evaluation_before: Optional[float] = None
     expected_score_before: Optional[float] = None
+    # --- 后续线路：可以在棋盘上逐步演示，然后回到实战 ---
+    #: 引擎推荐着法及其后续（第一个元素就是 best_move_uci）。
+    best_line_uci: List[str] = Field(default_factory=list)
+    best_line_san: List[str] = Field(default_factory=list)
+    #: 实战着法及其后续（第一个元素就是本手的 uci）。
+    played_line_uci: List[str] = Field(default_factory=list)
+    played_line_san: List[str] = Field(default_factory=list)
     concept_tags: List[ConceptType] = Field(default_factory=list)
     decision_error_tags: List[DecisionErrorType] = Field(default_factory=list)
     is_critical: bool = False

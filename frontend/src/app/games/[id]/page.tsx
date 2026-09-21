@@ -139,6 +139,15 @@ export default function GameReviewPage() {
     setAutoPlaying(false);
   }, []);
 
+  /** 所有"移动棋盘"的操作都走这里，顺便退出线路演示（线路只属于某个特定局面）。 */
+  const goToPosition = useCallback(
+    (next: number) => {
+      exitWalkthrough();
+      setPositionIndex(Math.max(0, next));
+    },
+    [exitWalkthrough],
+  );
+
   const moments = useMemo(() => review?.critical_moments ?? [], [review]);
   const moves = useMemo(() => review?.moves ?? [], [review]);
   const maxPly = moves.length;
@@ -169,6 +178,8 @@ export default function GameReviewPage() {
   const highlightedPly = atDecisionPoint && selectedMoment ? selectedMoment.ply : clampedPosition;
 
   // ---------------------------------------------------------------- 线路演示
+  /** 当前局面这一手（upcomingMove）的线路数据。 */
+  const currentPlyLines = upcomingMove ? linesByPly[upcomingMove.ply] ?? null : null;
   const momentLines = selectedMoment ? linesByPly[selectedMoment.ply] ?? null : null;
   const activeLine = momentLines
     ? lineMode?.kind === "played"
@@ -257,7 +268,7 @@ export default function GameReviewPage() {
           // 演示线路时，左右键走的是线路，而不是实战棋局。
           setLineMode({ kind: lineMode.kind, index: Math.max(0, lineMode.index - 1) });
         } else {
-          setPositionIndex((index) => Math.max(0, index - 1));
+          goToPosition(clampedPosition - 1);
         }
       }
       if (event.key === "ArrowRight") {
@@ -269,13 +280,13 @@ export default function GameReviewPage() {
             index: Math.min(activeLine.steps.length, lineMode.index + 1),
           });
         } else {
-          setPositionIndex((index) => Math.min(maxPly, index + 1));
+          goToPosition(clampedPosition + 1);
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [maxPly, goToNextMoment, goToPreviousMoment, lineMode, activeLine, exitWalkthrough]);
+  }, [clampedPosition, goToNextMoment, goToPreviousMoment, lineMode, activeLine, exitWalkthrough, goToPosition]);
 
   const loadSummary = async () => {
     setSummaryLoading(true);
@@ -458,7 +469,7 @@ export default function GameReviewPage() {
                 type="button"
                 className="rounded border px-2.5 py-1.5 text-sm"
                 style={{ borderColor: "var(--border)" }}
-                onClick={() => setPositionIndex(0)}
+                onClick={() => goToPosition(0)}
                 disabled={clampedPosition === 0}
                 title="回到开局"
               >
@@ -468,7 +479,7 @@ export default function GameReviewPage() {
                 type="button"
                 className="rounded border px-2.5 py-1.5 text-sm"
                 style={{ borderColor: "var(--border)" }}
-                onClick={() => setPositionIndex((index) => Math.max(0, index - 1))}
+                onClick={() => goToPosition(clampedPosition - 1)}
                 disabled={clampedPosition === 0}
                 title="上一步（←）"
               >
@@ -481,7 +492,7 @@ export default function GameReviewPage() {
                 type="button"
                 className="rounded border px-2.5 py-1.5 text-sm"
                 style={{ borderColor: "var(--border)" }}
-                onClick={() => setPositionIndex((index) => Math.min(maxPly, index + 1))}
+                onClick={() => goToPosition(clampedPosition + 1)}
                 disabled={clampedPosition >= maxPly}
                 title="下一步（→）"
               >
@@ -491,7 +502,7 @@ export default function GameReviewPage() {
                 type="button"
                 className="rounded border px-2.5 py-1.5 text-sm"
                 style={{ borderColor: "var(--border)" }}
-                onClick={() => setPositionIndex(maxPly)}
+                onClick={() => goToPosition(maxPly)}
                 disabled={clampedPosition >= maxPly}
                 title="跳到终局"
               >
@@ -660,16 +671,36 @@ export default function GameReviewPage() {
             在棋盘上显示引擎推荐走法（每一手都可以看）
           </label>
 
+          {/* 后续线路演示：放在棋盘旁边，任何局面都能用，随时可以回到实战 */}
+          {upcomingMove || lineMode ? (
+            <LineWalker
+              lines={currentPlyLines}
+              loading={linesLoading}
+              active={lineMode !== null}
+              kind={lineMode?.kind ?? "best"}
+              index={lineMode?.index ?? 0}
+              playing={autoPlaying}
+              onStart={() => {
+                if (upcomingMove) void startWalkthrough(upcomingMove.ply);
+              }}
+              onExit={exitWalkthrough}
+              onKindChange={(kind) => setLineMode({ kind, index: 0 })}
+              onIndexChange={(index) =>
+                setLineMode((current) =>
+                  current ? { ...current, index } : { kind: "best", index },
+                )
+              }
+              onTogglePlaying={() => setAutoPlaying((value) => !value)}
+            />
+          ) : null}
+
         </section>
 
         <section className="space-y-4">
           <MoveList
             moves={moves}
             currentPly={highlightedPly}
-            onSelect={(ply) => {
-              exitWalkthrough();
-              setPositionIndex(ply);
-            }}
+            onSelect={goToPosition}
           />
 
           <div className="panel p-3">
@@ -704,28 +735,13 @@ export default function GameReviewPage() {
                         moment={moment}
                         engineName={review.engine.engine_name}
                         atDecisionPoint={atDecisionPoint}
-                        onJumpBack={() => setPositionIndex(Math.max(0, moment.ply - 1))}
+                        onJumpBack={() => goToPosition(Math.max(0, moment.ply - 1))}
                         explanation={explanations[moment.ply]}
                         llmConfigured={review.llm_available}
                         onRetry={() => {
                           requestedPlys.current.delete(moment.ply);
                           void loadExplanation(moment.ply);
                         }}
-                        lines={momentLines}
-                        linesLoading={linesLoading}
-                        lineActive={lineMode !== null}
-                        lineKind={lineMode?.kind ?? "best"}
-                        lineIndex={lineMode?.index ?? 0}
-                        autoPlaying={autoPlaying}
-                        onStartLine={() => void startWalkthrough(moment.ply)}
-                        onExitLine={exitWalkthrough}
-                        onLineKindChange={(kind) => setLineMode({ kind, index: 0 })}
-                        onLineIndexChange={(index) =>
-                          setLineMode((current) =>
-                            current ? { ...current, index } : { kind: "best", index },
-                          )
-                        }
-                        onToggleAutoPlay={() => setAutoPlaying((value) => !value)}
                       />
                     ) : null}
                   </div>
@@ -738,10 +754,8 @@ export default function GameReviewPage() {
             moves={moves}
             selectedPly={selectedPly}
             onSelect={(ply) => {
-              exitWalkthrough();
-              setPositionIndex(ply);
-              const index = moments.findIndex((moment) => moment.ply === ply);
-              if (index >= 0) setSelectedPly(ply);
+              goToPosition(ply);
+              if (moments.some((moment) => moment.ply === ply)) setSelectedPly(ply);
             }}
           />
         </section>
@@ -758,17 +772,6 @@ interface MomentDetailProps {
   explanation: ExplanationState | undefined;
   llmConfigured: boolean;
   onRetry: () => void;
-  lines: MomentLines | null;
-  linesLoading: boolean;
-  lineActive: boolean;
-  lineKind: LineKind;
-  lineIndex: number;
-  autoPlaying: boolean;
-  onStartLine: () => void;
-  onExitLine: () => void;
-  onLineKindChange: (kind: LineKind) => void;
-  onLineIndexChange: (index: number) => void;
-  onToggleAutoPlay: () => void;
 }
 
 /** 关键局面的展开内容：控制条 + 引擎证据 + 教练解释。 */
@@ -780,17 +783,6 @@ function MomentDetail({
   explanation,
   llmConfigured,
   onRetry,
-  lines,
-  linesLoading,
-  lineActive,
-  lineKind,
-  lineIndex,
-  autoPlaying,
-  onStartLine,
-  onExitLine,
-  onLineKindChange,
-  onLineIndexChange,
-  onToggleAutoPlay,
 }: MomentDetailProps) {
   return (
     <div className="mt-2 space-y-3 border-l-2 pl-3" style={{ borderColor: "var(--border)" }}>
@@ -808,20 +800,6 @@ function MomentDetail({
       )}
 
       <p className="text-sm leading-relaxed">{moment.one_liner_zh}</p>
-
-      <LineWalker
-        lines={lines}
-        loading={linesLoading}
-        active={lineActive}
-        kind={lineKind}
-        index={lineIndex}
-        playing={autoPlaying}
-        onStart={onStartLine}
-        onExit={onExitLine}
-        onKindChange={onLineKindChange}
-        onIndexChange={onLineIndexChange}
-        onTogglePlaying={onToggleAutoPlay}
-      />
 
       <EvidencePanel
         engine={moment.evidence.engine}

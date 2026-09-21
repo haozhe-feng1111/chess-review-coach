@@ -433,37 +433,39 @@ class AnalysisService:
         return self._coach.explain_moment(moment.evidence)
 
     def moment_lines(self, game_id: str, ply: int) -> Optional[MomentLinesResponse]:
-        """把某个关键局面的引擎线路展开成可逐步演示的局面序列。
+        """把某一个局面的后续线路展开成可逐步演示的局面序列。
+
+        **任何一手都能查**，不只是关键局面：关键局面用的是第二遍深度分析的线路，
+        其余着法用的是第一遍扫描的线路。
 
         纯 python-chess 重放，不调用引擎、不花钱、毫秒级返回。
         """
         review = self.get_review(game_id)
         if review is None:
             return None
-        moment = next((item for item in review.critical_moments if item.ply == ply), None)
-        if moment is None:
+        move = next((item for item in review.moves if item.ply == ply), None)
+        if move is None or not move.best_line_uci:
             return None
 
-        engine = moment.evidence.engine
-        # 引擎 PV 保存时截断到固定步数，这里如实告诉前端"线路到此为止"。
-        truncated = len(engine.best_line_uci) >= PV_STORED_PLIES
+        # 引擎 PV 保存时截断到固定步数，这里如实告诉前端「线路到此为止」。
+        truncated = len(move.best_line_uci) >= PV_STORED_PLIES
         return MomentLinesResponse(
             ply=ply,
-            move_number=moment.move_number,
-            played_move_san=moment.played_move_san,
-            best_move_san=engine.best_move_san,
-            evaluation_before=engine.evaluation_before,
-            expected_score_before=engine.expected_score_before,
+            move_number=move.move_number,
+            played_move_san=move.san,
+            best_move_san=move.best_move_san,
+            evaluation_before=move.evaluation_before,
+            expected_score_before=move.expected_score_before,
             best=walk_line(
-                moment.fen,
-                engine.best_line_uci,
+                move.fen_before,
+                move.best_line_uci,
                 "best",
                 "引擎推荐线路",
                 pv_limit_reached=truncated,
             ),
             played=walk_line(
-                moment.fen,
-                engine.played_line_uci,
+                move.fen_before,
+                move.played_line_uci,
                 "played",
                 "实战线路（你实际走出来的）",
                 pv_limit_reached=truncated,

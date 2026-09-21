@@ -65,10 +65,11 @@ export default function LineWalker({
           className="rounded border px-3 py-1.5 text-sm text-sky-300"
           style={{ borderColor: "rgba(79,156,249,0.5)" }}
         >
-          ▶ 演示引擎线路
+          ▶ 演示后续走法
         </button>
         <span style={{ color: "var(--muted)" }}>
-          在棋盘上把引擎推荐的后续走一遍（{lines.best.steps.length} 步），走完可以随时回到实战。
+          在棋盘上一步步走完引擎推荐的后续（{lines.best.steps.length} 步），
+          也可以切到「实战线路」看对手会怎么惩罚，随时点「返回实战对局」回到真实棋局。
         </span>
       </div>
     );
@@ -193,8 +194,10 @@ export default function LineWalker({
       <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
         {currentStep
           ? `刚走：${currentStep.mover === "white" ? "白方" : "黑方"} ${currentStep.san}`
-          : `起点：你当时面对的局面（评估 ${lines.evaluation_before ?? "—"}）`}
+          : `起点：这个局面（评估 ${lines.evaluation_before ?? "—"}）`}
         {nextStep ? ` · 接下来：${nextStep.san}` : ""}
+        {" · "}
+        {index > 0 ? "点 ⏮ 可回到起点" : "点 ▶ 一步步走"}
       </p>
 
       {index >= total && total > 0 ? (

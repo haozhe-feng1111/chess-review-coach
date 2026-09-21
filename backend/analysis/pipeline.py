@@ -411,6 +411,11 @@ class GameAnalyzer:
             expected_score_before=(
                 round(engine.expected_score_before, 4) if engine else None
             ),
+            # 引擎 PV 保存时已经截断到 PV_MAX_PLIES，这里直接带上，前端就能逐步演示。
+            best_line_uci=list(engine.best_line_uci) if engine else [],
+            best_line_san=list(engine.best_line_san) if engine else [],
+            played_line_uci=list(engine.played_line_uci) if engine else [],
+            played_line_san=list(engine.played_line_san) if engine else [],
             concept_tags=[concept.type for concept in slot.concepts],
             decision_error_tags=[error.type for error in slot.errors],
         )

@@ -79,9 +79,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>("/api/health"),
 
-  /** 把某个关键局面的引擎线路展开成可逐步演示的局面序列。 */
+  /** 把某个局面的后续线路展开成可逐步演示的局面序列（任何一手都能查）。 */
   lines: (gameId: string, ply: number) =>
-    request<MomentLines>(`/api/games/${gameId}/moments/${ply}/lines`),
+    request<MomentLines>(`/api/games/${gameId}/moves/${ply}/lines`),
 
   /** 真实调用一次 DeepSeek，验证 API Key 是否可用。 */
   testLlm: () => request<LLMTestResult>("/api/llm/test", { method: "POST" }),
