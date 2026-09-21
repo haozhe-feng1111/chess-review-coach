@@ -10,6 +10,8 @@ interface EvalBarProps {
   expectedScore: number;
   orientation: "white" | "black";
   label?: string;
+  /** 紧凑模式：一行放下，用于棋盘下方（默认的卡片式太高）。 */
+  compact?: boolean;
 }
 
 /**
@@ -25,9 +27,26 @@ export default function EvalBar({
   expectedScore,
   orientation,
   label,
+  compact = false,
 }: EvalBarProps) {
   const share = clamp(expectedScore, 0, 1);
   const whiteShare = orientation === "white" ? share : 1 - share;
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 px-0.5 text-xs">
+        <span style={{ color: "var(--muted)" }}>{label ?? "评估"}</span>
+        <span className="mono w-12 shrink-0">{formatEval(evaluation, mate)}</span>
+        <div className="flex h-2 flex-1 overflow-hidden rounded-full ring-1 ring-slate-700">
+          <div style={{ width: `${whiteShare * 100}%`, background: "#e6ebf5" }} />
+          <div style={{ width: `${(1 - whiteShare) * 100}%`, background: "#1b2438" }} />
+        </div>
+        <span className="shrink-0" style={{ color: "var(--muted)" }}>
+          期望得分 <span className="mono">{formatPercent(share)}</span>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="panel-soft p-3">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import type { LineWalk, MomentLines } from "@/lib/types";
 
 export type LineKind = "best" | "played";
@@ -42,22 +44,28 @@ export default function LineWalker({
   onIndexChange,
   onTogglePlaying,
 }: LineWalkerProps) {
+  const chipRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+
+  // 着法列表是横向滚动的，步进时把当前这一手滚进视野（滚不动也无所谓，不能因此报错）
+  useEffect(() => {
+    chipRefs.current[index]?.scrollIntoView?.({ block: "nearest", inline: "center" });
+  }, [index]);
+
   // 入口按钮必须在"还没取数据"时就能显示出来——线路数据是点了按钮才去取的，
   // 所以这里绝不能因为 lines === null 就直接 return null（那会让按钮永远出不来）。
   if (!active) {
     return (
-      <div className="panel-soft flex flex-wrap items-center gap-2 p-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onStart}
-          className="rounded border px-3 py-1.5 text-sm text-sky-300"
+          className="rounded border px-2.5 py-1 text-sky-300"
           style={{ borderColor: "rgba(79,156,249,0.5)" }}
         >
           ▶ 演示后续走法
         </button>
         <span style={{ color: "var(--muted)" }}>
-          从当前这个局面出发，在棋盘上一步步走完引擎推荐的后续；
-          也可以切到「实战线路」看对手会怎么惩罚，随时点「返回实战对局」回到真实棋局。
+          在棋盘上走完引擎推荐的后续，也可切到「实战线路」看对手怎么惩罚
         </span>
       </div>
     );
@@ -65,7 +73,7 @@ export default function LineWalker({
 
   if (loading && !lines) {
     return (
-      <div className="panel-soft p-3 text-xs" style={{ color: "var(--muted)" }}>
+      <div className="text-xs" style={{ color: "var(--muted)" }}>
         正在展开引擎线路…
       </div>
     );
@@ -73,7 +81,7 @@ export default function LineWalker({
 
   if (!lines) {
     return (
-      <div className="panel-soft flex flex-wrap items-center gap-2 p-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="text-amber-300">没能取到这个局面的线路数据。</span>
         <button
           type="button"
@@ -102,7 +110,7 @@ export default function LineWalker({
 
   return (
     <div
-      className="rounded-md border p-3"
+      className="rounded-md border p-2"
       style={{ borderColor: "rgba(79,156,249,0.5)", background: "rgba(79,156,249,0.06)" }}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -195,16 +203,19 @@ export default function LineWalker({
         </button>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
         {walk.steps.map((step, stepIndex) => {
           const isCurrent = stepIndex === index - 1;
           const isNext = stepIndex === index;
           return (
             <button
               key={`${step.uci}-${stepIndex}`}
+              ref={(node) => {
+                chipRefs.current[stepIndex + 1] = node;
+              }}
               type="button"
               onClick={() => onIndexChange(stepIndex + 1)}
-              className={`mono rounded border px-1.5 py-0.5 text-xs ${
+              className={`mono shrink-0 rounded border px-1.5 py-0.5 text-xs ${
                 isCurrent ? "bg-sky-700 text-white" : isNext ? "border-sky-500 text-sky-200" : ""
               }`}
               style={isCurrent || isNext ? undefined : { borderColor: "var(--border)", color: "var(--muted)" }}

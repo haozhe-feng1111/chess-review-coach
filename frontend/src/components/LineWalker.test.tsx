@@ -74,7 +74,7 @@ describe("LineWalker", () => {
 
     expect(screen.getByRole("button", { name: /演示后续走法/ })).toBeTruthy();
     // 并说明这个功能是干什么的
-    expect(screen.getByText(/一步步走完引擎推荐的后续/)).toBeTruthy();
+    expect(screen.getByText(/走完引擎推荐的后续/)).toBeTruthy();
   });
 
   it("点了入口按钮会通知外面去取线路数据", () => {

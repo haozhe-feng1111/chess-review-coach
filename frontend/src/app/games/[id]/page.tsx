@@ -430,246 +430,229 @@ export default function GameReviewPage() {
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(320px,440px)_1fr]">
-        <section className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-          <Board
-            fen={boardFen}
-            orientation={review.player_color}
-            lastMove={boardLastMove}
-            bestMoveArrow={boardBestArrow}
-            playedArrow={boardPlayedArrow}
-          />
+        {/* 左栏：棋盘 + 一行跳转 + 当前局面/线路演示 + 评估条。
+            排版目标：这几样必须在同一屏里，所以棋盘宽度会根据视口高度自动收缩。 */}
+        <section className="space-y-2 lg:sticky lg:top-4 lg:self-start">
+          <div
+            className="mx-auto w-full"
+            style={{ maxWidth: "min(100%, calc(100vh - 290px))" }}
+          >
+            <Board
+              fen={boardFen}
+              orientation={review.player_color}
+              lastMove={boardLastMove}
+              bestMoveArrow={boardBestArrow}
+              playedArrow={boardPlayedArrow}
+            />
+          </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                className="rounded border px-2.5 py-1.5 text-sm"
-                style={{ borderColor: "var(--border)" }}
-                onClick={() => goToPosition(0)}
-                disabled={clampedPosition === 0}
-                title="回到开局"
-              >
-                ⏮
-              </button>
-              <button
-                type="button"
-                className="rounded border px-2.5 py-1.5 text-sm"
-                style={{ borderColor: "var(--border)" }}
-                onClick={() => goToPosition(clampedPosition - 1)}
-                disabled={clampedPosition === 0}
-                title="上一步（←）"
-              >
-                ◀ 上一步
-              </button>
-              <span className="mono text-xs" style={{ color: "var(--muted)" }}>
-                {clampedPosition}/{maxPly}
-              </span>
-              <button
-                type="button"
-                className="rounded border px-2.5 py-1.5 text-sm"
-                style={{ borderColor: "var(--border)" }}
-                onClick={() => goToPosition(clampedPosition + 1)}
-                disabled={clampedPosition >= maxPly}
-                title="下一步（→）"
-              >
-                下一步 ▶
-              </button>
-              <button
-                type="button"
-                className="rounded border px-2.5 py-1.5 text-sm"
-                style={{ borderColor: "var(--border)" }}
-                onClick={() => goToPosition(maxPly)}
-                disabled={clampedPosition >= maxPly}
-                title="跳到终局"
-              >
-                ⏭
-              </button>
-            </div>
+          {/* 一行放下所有跳转：实战着法 + 关键局面 */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              className="rounded border px-2 py-1 text-sm"
+              style={{ borderColor: "var(--border)" }}
+              onClick={() => goToPosition(0)}
+              disabled={clampedPosition === 0}
+              title="回到开局"
+            >
+              ⏮
+            </button>
+            <button
+              type="button"
+              className="rounded border px-2 py-1 text-sm"
+              style={{ borderColor: "var(--border)" }}
+              onClick={() => goToPosition(clampedPosition - 1)}
+              disabled={clampedPosition === 0}
+              title="上一步（←）"
+            >
+              ◀
+            </button>
+            <span className="mono px-1 text-xs" style={{ color: "var(--muted)" }}>
+              {clampedPosition}/{maxPly}
+            </span>
+            <button
+              type="button"
+              className="rounded border px-2 py-1 text-sm"
+              style={{ borderColor: "var(--border)" }}
+              onClick={() => goToPosition(clampedPosition + 1)}
+              disabled={clampedPosition >= maxPly}
+              title="下一步（→）"
+            >
+              ▶
+            </button>
+            <button
+              type="button"
+              className="rounded border px-2 py-1 text-sm"
+              style={{ borderColor: "var(--border)" }}
+              onClick={() => goToPosition(maxPly)}
+              disabled={clampedPosition >= maxPly}
+              title="跳到终局"
+            >
+              ⏭
+            </button>
 
             {moments.length > 0 ? (
-              <div className="flex items-center justify-between gap-2">
+              <>
+                <span
+                  className="mx-0.5 h-4 w-px"
+                  style={{ background: "var(--border)" }}
+                  aria-hidden
+                />
                 <button
                   type="button"
-                  className="flex-1 rounded border px-2.5 py-1.5 text-sm"
+                  className="rounded border px-2 py-1 text-sm"
                   style={{ borderColor: "var(--border)" }}
                   onClick={goToPreviousMoment}
                   disabled={selectedIndex <= 0}
                   title="上一个关键局面（Shift + ←）"
                 >
-                  ⇤ 上一个关键局面
+                  ⇤
                 </button>
+                <span className="mono px-1 text-xs" style={{ color: "var(--muted)" }}>
+                  关键 {selectedIndex >= 0 ? selectedIndex + 1 : "—"}/{moments.length}
+                </span>
                 <button
                   type="button"
-                  className="flex-1 rounded border px-2.5 py-1.5 text-sm"
+                  className="rounded border px-2 py-1 text-sm"
                   style={{ borderColor: "var(--border)" }}
                   onClick={goToNextMoment}
                   disabled={selectedIndex >= moments.length - 1}
                   title="下一个关键局面（Shift + →）"
                 >
-                  下一个关键局面 ⇥
+                  ⇥
                 </button>
-              </div>
+              </>
             ) : null}
 
-            {moments.length > 0 && selectedIndex >= 0 ? (
-              <p className="text-center text-xs" style={{ color: "var(--muted)" }}>
-                关键局面 {selectedIndex + 1} / {moments.length}
-                {atDecisionPoint
-                  ? " · 棋盘显示的是你当时面对的局面"
-                  : " · 棋盘已移开，点卡片可跳回"}
-              </p>
-            ) : null}
+            <label
+              className="ml-auto flex items-center gap-1.5 text-xs"
+              style={{ color: "var(--muted)" }}
+            >
+              <input
+                type="checkbox"
+                checked={showBestMove}
+                onChange={(event) => setShowBestMove(event.target.checked)}
+              />
+              显示推荐箭头
+            </label>
           </div>
 
+          {/* 当前局面：实战 vs 引擎推荐，以及后续线路演示——都紧贴棋盘，不用滚动 */}
+          {upcomingMove || lineMode ? (
+            <div className="panel-soft space-y-2 p-2.5 text-xs">
+              {lineMode && activeLine ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span>
+                    {currentLineStep
+                      ? `第 ${
+                          (selectedMoment?.move_number ?? 1) +
+                          Math.floor(Math.max(0, lineMode.index - 1) / 2)
+                        } 手 · ${currentLineStep.mover === "white" ? "白方" : "黑方"}走 ${
+                          currentLineStep.san
+                        }`
+                      : "起点：当前局面"}
+                    {nextLineStep ? (
+                      <span style={{ color: "var(--muted)" }}>
+                        {" · 接下来 "}
+                        <span className="mono text-sky-300">{nextLineStep.san}</span>
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="tag tag-engine">引擎线路</span>
+                </div>
+              ) : upcomingMove ? (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      第 {upcomingMove.move_number} 手 ·{" "}
+                      {upcomingMove.is_player_move ? "你在这里走" : "对手在这里走"}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      {upcomingMove.severity ? (
+                        <span
+                          className={`rounded px-1.5 py-0.5 ring-1 ${
+                            SEVERITY_BADGE[upcomingMove.severity]
+                          }`}
+                        >
+                          {severityLabel(upcomingMove.severity)}
+                        </span>
+                      ) : null}
+                      {upcomingMove.is_critical ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const index = moments.findIndex(
+                              (moment) => moment.ply === upcomingMove.ply,
+                            );
+                            if (index >= 0) goToMoment(index);
+                          }}
+                          className="rounded border px-1.5 py-0.5"
+                          style={{ borderColor: "var(--border)" }}
+                          title="跳到下面这个局面的完整解释"
+                        >
+                          看解释 ↓
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>
+                      实战 <span className="mono">{upcomingMove.san}</span>
+                      {upcomingMove.is_engine_best ? (
+                        <span className="text-emerald-300"> · 就是引擎首选</span>
+                      ) : null}
+                    </span>
+                    {!upcomingMove.is_engine_best ? (
+                      <span>
+                        引擎推荐{" "}
+                        <span className="mono text-sky-300">
+                          {upcomingMove.best_move_san ?? "—"}
+                        </span>
+                      </span>
+                    ) : null}
+                    {upcomingMove.expected_score_loss !== null &&
+                    upcomingMove.expected_score_loss > 0 ? (
+                      <span style={{ color: "var(--muted)" }}>
+                        损失 <span className="mono">
+                          {formatLoss(upcomingMove.expected_score_loss)}
+                        </span>
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+
+              <LineWalker
+                lines={currentPlyLines}
+                loading={linesLoading}
+                active={lineMode !== null}
+                kind={lineMode?.kind ?? "best"}
+                index={lineMode?.index ?? 0}
+                playing={autoPlaying}
+                onStart={() => {
+                  if (upcomingMove) void startWalkthrough(upcomingMove.ply);
+                }}
+                onExit={exitWalkthrough}
+                onKindChange={(kind) => setLineMode({ kind, index: 0 })}
+                onIndexChange={(index) =>
+                  setLineMode((current) =>
+                    current ? { ...current, index } : { kind: "best", index },
+                  )
+                }
+                onTogglePlaying={() => setAutoPlaying((value) => !value)}
+              />
+            </div>
+          ) : null}
+
           <EvalBar
+            compact
             evaluation={evalView.evaluation}
             mate={evalView.mate}
             expectedScore={evalView.expected}
             orientation={review.player_color}
-            label={atDecisionPoint ? "走子前评估（你的一方）" : "局面评估（你的一方）"}
+            label={atDecisionPoint ? "走子前评估" : "评估"}
           />
-
-          {lineMode && activeLine ? (
-            <div className="panel-soft p-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span>
-                  {currentLineStep
-                    ? `第 ${
-                        (selectedMoment?.move_number ?? 1) +
-                        Math.floor(Math.max(0, lineMode.index - 1) / 2)
-                      } 手 · ${currentLineStep.mover === "white" ? "白方" : "黑方"}走 ${
-                        currentLineStep.san
-                      }`
-                    : "起点：你当时面对的局面"}
-                </span>
-                <span className="tag tag-engine">引擎线路</span>
-              </div>
-              {nextLineStep ? (
-                <div className="mt-1" style={{ color: "var(--muted)" }}>
-                  线路下一步：<span className="mono text-sky-300">{nextLineStep.san}</span>
-                </div>
-              ) : null}
-            </div>
-          ) : upcomingMove ? (
-            <div className="panel-soft p-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span>
-                  第 {upcomingMove.move_number} 手 ·{" "}
-                  {upcomingMove.is_player_move ? "你在这里走" : "对手在这里走"}
-                </span>
-                {upcomingMove.severity ? (
-                  <span
-                    className={`rounded px-1.5 py-0.5 ring-1 ${SEVERITY_BADGE[upcomingMove.severity]}`}
-                  >
-                    {severityLabel(upcomingMove.severity)}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-1.5 space-y-1">
-                <div>
-                  实战：<span className="mono">{upcomingMove.san}</span>
-                  {upcomingMove.is_engine_best ? (
-                    <span className="text-emerald-300"> · 就是引擎首选</span>
-                  ) : null}
-                </div>
-                {!upcomingMove.is_engine_best ? (
-                  <div>
-                    引擎推荐：
-                    <span className="mono text-sky-300">
-                      {" "}
-                      {upcomingMove.best_move_san ?? "—"}
-                    </span>
-                    {upcomingMove.best_move_uci && showBestMove ? (
-                      <span style={{ color: "var(--muted)" }}>（棋盘上蓝色箭头）</span>
-                    ) : null}
-                  </div>
-                ) : null}
-                {upcomingMove.expected_score_loss !== null &&
-                upcomingMove.expected_score_loss > 0 ? (
-                  <div style={{ color: "var(--muted)" }}>
-                    期望得分损失{" "}
-                    <span className="mono">{formatLoss(upcomingMove.expected_score_loss)}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              {upcomingMove.is_critical ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const index = moments.findIndex(
-                      (moment) => moment.ply === upcomingMove.ply,
-                    );
-                    if (index >= 0) goToMoment(index);
-                  }}
-                  className="mt-2 rounded border px-2 py-1 text-sky-300"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  看这个局面的完整解释 ↓
-                </button>
-              ) : upcomingMove.severity && upcomingMove.severity !== "best" &&
-                upcomingMove.severity !== "excellent" && upcomingMove.severity !== "good" ? (
-                <p className="mt-2" style={{ color: "var(--muted)" }}>
-                  这一手不在关键局面清单里：只给引擎推荐，不生成 AI 解释。
-                </p>
-              ) : null}
-            </div>
-          ) : lastPlayedMove?.severity ? (
-            <div className="panel-soft p-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span>
-                  第 {lastPlayedMove.move_number} 手{" "}
-                  <span className="mono">{lastPlayedMove.san}</span>
-                </span>
-                <span
-                  className={`rounded px-1.5 py-0.5 ring-1 ${SEVERITY_BADGE[lastPlayedMove.severity]}`}
-                >
-                  {severityLabel(lastPlayedMove.severity)}
-                </span>
-              </div>
-              <div className="mt-1" style={{ color: "var(--muted)" }}>
-                {lastPlayedMove.is_player_move ? "你的着法" : "对手着法"} · 期望得分损失{" "}
-                <span className="mono">{formatLoss(lastPlayedMove.expected_score_loss)}</span>
-              </div>
-            </div>
-          ) : null}
-
-          <label
-            className="flex items-center gap-2 px-1 text-xs"
-            style={{ color: "var(--muted)" }}
-          >
-            <input
-              type="checkbox"
-              checked={showBestMove}
-              onChange={(event) => setShowBestMove(event.target.checked)}
-            />
-            在棋盘上显示引擎推荐走法（每一手都可以看）
-          </label>
-
-          {/* 后续线路演示：放在棋盘旁边，任何局面都能用，随时可以回到实战 */}
-          {upcomingMove || lineMode ? (
-            <LineWalker
-              lines={currentPlyLines}
-              loading={linesLoading}
-              active={lineMode !== null}
-              kind={lineMode?.kind ?? "best"}
-              index={lineMode?.index ?? 0}
-              playing={autoPlaying}
-              onStart={() => {
-                if (upcomingMove) void startWalkthrough(upcomingMove.ply);
-              }}
-              onExit={exitWalkthrough}
-              onKindChange={(kind) => setLineMode({ kind, index: 0 })}
-              onIndexChange={(index) =>
-                setLineMode((current) =>
-                  current ? { ...current, index } : { kind: "best", index },
-                )
-              }
-              onTogglePlaying={() => setAutoPlaying((value) => !value)}
-            />
-          ) : null}
-
         </section>
 
         <section className="space-y-4">

@@ -275,6 +275,26 @@ describe("复盘页", () => {
     expect(screen.getByRole("button", { name: "Nf3" })).toBeTruthy();
   });
 
+  it("线路控制必须和棋盘在同一块区域里（排版守卫）", async () => {
+    render(<GameReviewPage />);
+    await waitFor(() => expect(screen.getByTestId("board")).toBeTruthy());
+
+    const board = screen.getByTestId("board");
+    const section = board.closest("section");
+    expect(section).toBeTruthy();
+
+    // 入口按钮、评估条、着法跳转都必须和棋盘同属左栏，用户不用滚动才能点到
+    const entry = await screen.findByRole("button", { name: /演示后续走法/ });
+    expect(section?.contains(entry)).toBe(true);
+
+    // 棋盘后面紧跟的节点顺序：棋盘 -> 跳转按钮 -> ...，距离不超过几层
+    expect(section?.contains(screen.getByTitle("下一步（→）"))).toBe(true);
+    expect(section?.contains(screen.getByTitle("下一个关键局面（Shift + →）"))).toBe(true);
+    expect(
+      screen.getAllByText("期望得分", { exact: false }).some((node) => section?.contains(node)),
+    ).toBe(true);
+  });
+
   it("页面底部会列出全部问题着法并给出引擎推荐", async () => {
     render(<GameReviewPage />);
     await waitFor(() => expect(screen.getByTestId("board")).toBeTruthy());
