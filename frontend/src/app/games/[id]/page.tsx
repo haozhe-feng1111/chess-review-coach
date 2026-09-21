@@ -252,7 +252,8 @@ export default function GameReviewPage() {
   // 用「上一个/下一个关键局面」跳转时，把对应卡片滚进视野。
   useEffect(() => {
     if (selectedPly === null) return;
-    cardRefs.current[selectedPly]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // 滚动只是锦上添花：某些环境（老浏览器、无头环境）没有这个方法，不能因此让页面崩掉
+    cardRefs.current[selectedPly]?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [selectedPly]);
 
   useEffect(() => {
@@ -437,31 +438,6 @@ export default function GameReviewPage() {
             bestMoveArrow={boardBestArrow}
             playedArrow={boardPlayedArrow}
           />
-
-          {lineMode ? (
-            <div
-              className="rounded-md border px-3 py-2 text-xs"
-              style={{ borderColor: "rgba(79,156,249,0.5)", background: "rgba(79,156,249,0.08)" }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sky-200">
-                  线路演示中 · {activeLine?.label_zh ?? ""}
-                  {activeLine ? ` · ${lineMode.index}/${activeLine.steps.length}` : ""}
-                </span>
-                <button
-                  type="button"
-                  onClick={exitWalkthrough}
-                  className="rounded border px-2 py-0.5"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  ← 返回实战对局
-                </button>
-              </div>
-              <p className="mt-1" style={{ color: "var(--muted)" }}>
-                左右方向键在线路里走；Esc 或上面的按钮回到实战。
-              </p>
-            </div>
-          ) : null}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">

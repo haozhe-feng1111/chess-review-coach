@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:api": "node scripts/check-api-contract.mjs",
-    "dev:clean": "rm -rf .next && next dev --port ${PORT:-3000}"
+    "dev:clean": "rm -rf .next && next dev --port ${PORT:-3000}",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "16.3.5",
@@ -19,13 +20,17 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.5",
+    "jsdom": "^30.1.0",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
   },
   "license": "MIT"
 }

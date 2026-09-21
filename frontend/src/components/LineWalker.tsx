@@ -42,20 +42,8 @@ export default function LineWalker({
   onIndexChange,
   onTogglePlaying,
 }: LineWalkerProps) {
-  if (loading && !lines) {
-    return (
-      <div className="panel-soft p-3 text-xs" style={{ color: "var(--muted)" }}>
-        正在展开引擎线路…
-      </div>
-    );
-  }
-  if (!lines) return null;
-
-  const walk: LineWalk = kind === "best" ? lines.best : lines.played;
-  const total = walk.steps.length;
-  const currentStep = index > 0 ? walk.steps[index - 1] : null;
-  const nextStep = index < total ? walk.steps[index] : null;
-
+  // 入口按钮必须在"还没取数据"时就能显示出来——线路数据是点了按钮才去取的，
+  // 所以这里绝不能因为 lines === null 就直接 return null（那会让按钮永远出不来）。
   if (!active) {
     return (
       <div className="panel-soft flex flex-wrap items-center gap-2 p-3 text-xs">
@@ -68,12 +56,49 @@ export default function LineWalker({
           ▶ 演示后续走法
         </button>
         <span style={{ color: "var(--muted)" }}>
-          在棋盘上一步步走完引擎推荐的后续（{lines.best.steps.length} 步），
+          从当前这个局面出发，在棋盘上一步步走完引擎推荐的后续；
           也可以切到「实战线路」看对手会怎么惩罚，随时点「返回实战对局」回到真实棋局。
         </span>
       </div>
     );
   }
+
+  if (loading && !lines) {
+    return (
+      <div className="panel-soft p-3 text-xs" style={{ color: "var(--muted)" }}>
+        正在展开引擎线路…
+      </div>
+    );
+  }
+
+  if (!lines) {
+    return (
+      <div className="panel-soft flex flex-wrap items-center gap-2 p-3 text-xs">
+        <span className="text-amber-300">没能取到这个局面的线路数据。</span>
+        <button
+          type="button"
+          onClick={onStart}
+          className="rounded border px-2 py-1"
+          style={{ borderColor: "var(--border)" }}
+        >
+          重试
+        </button>
+        <button
+          type="button"
+          onClick={onExit}
+          className="rounded border px-2 py-1"
+          style={{ borderColor: "var(--border)" }}
+        >
+          返回实战对局
+        </button>
+      </div>
+    );
+  }
+
+  const walk: LineWalk = kind === "best" ? lines.best : lines.played;
+  const total = walk.steps.length;
+  const currentStep = index > 0 ? walk.steps[index - 1] : null;
+  const nextStep = index < total ? walk.steps[index] : null;
 
   return (
     <div
@@ -217,6 +242,8 @@ export default function LineWalker({
       <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
         线路里的每一步都是引擎认为双方最优的走法，所以走完之后的评估仍然接近起点的评估
         {lines.evaluation_before !== null ? `（${lines.evaluation_before}）` : ""}。
+        键盘：<span className="mono">←</span> <span className="mono">→</span> 在线路里走，
+        <span className="mono">Esc</span> 返回实战。
       </p>
     </div>
   );

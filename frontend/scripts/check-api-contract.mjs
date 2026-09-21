@@ -38,6 +38,7 @@ const isNumber = (v) => typeof v === "number" && Number.isFinite(v);
 const isBool = (v) => typeof v === "boolean";
 const isArray = (v) => Array.isArray(v);
 const nullableString = (v) => v === null || isString(v);
+const nullableNumber = (v) => v === null || isNumber(v);
 
 function section(title) {
   console.log(`\n${title}`);
@@ -166,6 +167,32 @@ async function main() {
   }
   check("explanation.explanation.confidence", explanation.explanation?.confidence, isNumber, "number");
   check("explanation.concept_tags", explanation.explanation?.concept_tags, isArray, "array");
+
+  section("后续线路 (GET /api/games/{id}/moves/{ply}/lines)");
+  // 前端「演示后续走法」用的就是这个接口；任何一手都必须能查到。
+  for (const move of review.moves.slice(0, 3)) {
+    const lines = await get(`/api/games/${started.game_id}/moves/${move.ply}/lines`);
+    check("lines.ply", lines.ply, isNumber, "number");
+    check("lines.best_move_san", lines.best_move_san, nullableString, "string|null");
+    check("lines.evaluation_before", lines.evaluation_before, nullableNumber, "number|null");
+    for (const kind of ["best", "played"]) {
+      const walk = lines[kind];
+      check(`lines.${kind}.steps`, walk?.steps, isArray, "array");
+      check(`lines.${kind}.label_zh`, walk?.label_zh, isString, "string");
+      check(`lines.${kind}.complete`, walk?.complete, isBool, "boolean");
+      if (walk?.steps?.length) {
+        const step = walk.steps[0];
+        check(`lines.${kind}.steps[0].uci`, step.uci, isString, "string");
+        check(`lines.${kind}.steps[0].san`, step.san, isString, "string");
+        check(`lines.${kind}.steps[0].fen_after`, step.fen_after, isString, "string");
+        check(`lines.${kind}.steps[0].mover`, step.mover, (v) => v === "white" || v === "black", "white|black");
+      }
+    }
+    // 引擎线路的第一步必须就是它推荐的那一手
+    check("lines.best.steps[0].san", lines.best.steps[0]?.san, (v) => v === lines.best_move_san, "== best_move_san");
+    // 实战线路的第一步必须就是实战走法
+    check("lines.played.steps[0].san", lines.played.steps[0]?.san, (v) => v === move.san, "== played san");
+  }
 
   section("整盘总结 (GET /api/games/{id}/summary)");
   const { summary } = await get(`/api/games/${started.game_id}/summary`);
