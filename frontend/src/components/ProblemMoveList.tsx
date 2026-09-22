@@ -1,7 +1,7 @@
 "use client";
 
 import type { MoveAssessment } from "@/lib/types";
-import { SEVERITY_BADGE, formatLoss, severityLabel } from "@/lib/labels";
+import { SEVERITY_BADGE, decisionErrorLabel, formatLoss, severityLabel } from "@/lib/labels";
 
 interface ProblemMoveListProps {
   moves: MoveAssessment[];
@@ -53,6 +53,7 @@ export default function ProblemMoveList({
                 <th className="py-1 text-left font-normal">手数</th>
                 <th className="py-1 text-left font-normal">实战</th>
                 <th className="py-1 text-left font-normal">引擎推荐</th>
+                <th className="py-1 text-left font-normal">主要失误原因</th>
                 <th className="py-1 text-right font-normal">期望得分损失</th>
               </tr>
             </thead>
@@ -89,6 +90,9 @@ export default function ProblemMoveList({
                     ) : (
                       <span className="mono text-sky-300">{move.best_move_san ?? "—"}</span>
                     )}
+                  </td>
+                  <td className="py-1.5 pr-2" style={{ color: "var(--muted)" }}>
+                    {move.primary_error ? decisionErrorLabel(move.primary_error) : "—"}
                   </td>
                   <td className="mono py-1.5 text-right">
                     {formatLoss(move.expected_score_loss)}

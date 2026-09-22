@@ -148,3 +148,87 @@ def test_unknown_opening_returns_none_rather_than_a_guess():
     assert identify_opening(["a3", "a6", "h3", "h6"]) is None
     assert identify_opening([]) is None
     assert table_size() > 20
+
+
+# ------------------------------------------------------------- 时间信息（时限/时钟）
+
+CLOCKED = """[Event "Live Chess"]
+[Site "Chess.com"]
+[White "Alpha"]
+[Black "Beta"]
+[Result "1-0"]
+[TimeControl "300+3"]
+
+1. e4 {[%clk 0:04:58]} e5 {[%clk 0:04:57.4]} 2. Nf3 {[%clk 0:04:50]} Nc6 {[%clk 0:04:45]} 1-0
+"""
+
+
+def test_clock_comments_are_read_per_move():
+    """PGN 里的 [%clk] 是"这一手走完之后还剩多少"——只有它能支撑时间压力的结论。"""
+    game = parse_pgn(CLOCKED, player_color=Color.WHITE)
+    assert game.has_clocks is True
+    assert [move.clock_seconds for move in game.moves] == [298.0, 297.4, 290.0, 285.0]
+
+
+def test_without_clock_comments_the_time_is_unknown():
+    """没有时钟信息就留空，绝不按"大概还剩多少"编一个出来。"""
+    game = parse_pgn(ITALIAN, player_color=Color.WHITE)
+    assert game.has_clocks is False
+    assert all(move.clock_seconds is None for move in game.moves)
+
+
+def test_lichess_style_clock_with_hours_and_tenths():
+    from analysis.pgn import parse_clock_comment
+
+    assert parse_clock_comment("[%clk 1:02:03]") == 3723.0
+    assert parse_clock_comment("[%clk 0:00:09.6]") == 9.6
+    # 其它注释（评估、箭头……）不能被误读成时间
+    assert parse_clock_comment("[%eval -0.34]") is None
+    assert parse_clock_comment("blunder") is None
+    assert parse_clock_comment(None) is None
+
+
+def test_time_control_header_is_parsed_and_bucketed():
+    game = parse_pgn(CLOCKED, player_color=Color.WHITE)
+    assert game.time_control is not None
+    assert game.time_control.base_seconds == 300
+    assert game.time_control.increment_seconds == 3
+    # 5 分钟 + 3 秒加秒 ≈ 7 分钟，按 Lichess 口径属于超快棋（blitz）
+    assert game.time_control.speed == "blitz"
+    assert "5 分钟" in game.time_control.readable_zh
+
+
+def with_time_control(raw: str) -> str:
+    return ITALIAN.replace('[Result "1-0"]', '[Result "1-0"]\n[TimeControl "{}"]'.format(raw))
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("15", "ultrabullet"),   # 估计时长 15 秒 < 30 秒
+        ("30", "bullet"),        # 正好 30 秒已经不算极速（严格小于）
+        ("60", "bullet"),
+        ("180", "blitz"),        # 3 分钟：估计时长 180 秒，正好进 blitz
+        ("300", "blitz"),
+        ("300+3", "blitz"),      # 加秒折算后 420 秒，还在 blitz
+        ("600", "rapid"),
+        ("900+10", "rapid"),
+        ("1800", "classical"),
+    ],
+)
+def test_time_control_buckets_follow_the_lichess_convention(raw, expected):
+    game = parse_pgn(with_time_control(raw), player_color=Color.WHITE)
+    assert game.time_control is not None, raw
+    assert game.time_control.speed == expected
+
+
+@pytest.mark.parametrize("raw", ["-", "1/259200", "40/7200:1800+30", "", "abc"])
+def test_unparseable_time_controls_are_reported_as_unknown(raw):
+    """通讯棋、FIDE 写法、垃圾值都不能猜：要么按秒解析，要么如实留空。"""
+    from analysis.timecontrol import parse_time_control
+
+    if raw == "40/7200:1800+30":
+        info = parse_time_control({"TimeControl": raw})
+        assert info is not None and info.base_seconds == 1800 and info.increment_seconds == 30
+    else:
+        assert parse_time_control({"TimeControl": raw}) is None

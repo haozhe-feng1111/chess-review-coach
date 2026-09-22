@@ -48,7 +48,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Chess Review Coach API",
-        version="0.3.0",
+        version="0.4.0",
         description=(
             "Explainable chess review: Stockfish decides what is objectively good, "
             "deterministic analysis extracts verifiable concepts, and an LLM explains "

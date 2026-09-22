@@ -12,13 +12,52 @@ import {
   formatPercent,
   severityLabel,
 } from "@/lib/labels";
-import type { ProfileSummary } from "@/lib/types";
+import type { ProfileSummary, RecurringWeakness } from "@/lib/types";
 
 const CONFIDENCE_LABELS: Record<string, string> = {
   insufficient: "样本不足",
   low: "初步观察",
   medium: "有一定参考价值",
 };
+
+const TREND_LABELS: Record<string, string> = {
+  improving: "在变少",
+  worsening: "在变多",
+  flat: "没有明显变化",
+  unknown: "样本不足",
+};
+
+const TREND_CLASSES: Record<string, string> = {
+  improving: "text-emerald-300",
+  worsening: "text-rose-300",
+  flat: "text-slate-300",
+  unknown: "text-slate-400",
+};
+
+const PHASE_SHORT: Record<string, string> = {
+  opening: "开局",
+  middlegame: "中局",
+  endgame: "残局",
+};
+
+/** 区间条：把 95% Wilson 区间的宽度画出来，避免让小样本的百分比显得很确定。 */
+function IntervalBar({ weakness, max }: { weakness: RecurringWeakness; max: number }) {
+  const left = (weakness.share_low / max) * 100;
+  const width = Math.max(1.5, ((weakness.share_high - weakness.share_low) / max) * 100);
+  const point = (weakness.share / max) * 100;
+  return (
+    <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full ring-1 ring-slate-700">
+      <div
+        className="absolute h-full bg-amber-500/35"
+        style={{ left: `${left}%`, width: `${width}%` }}
+      />
+      <div
+        className="absolute h-full w-[3px] bg-amber-300"
+        style={{ left: `calc(${point}% - 1.5px)` }}
+      />
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
@@ -53,6 +92,10 @@ export default function ProfilePage() {
   }
 
   const maxShare = Math.max(0.0001, ...profile.weaknesses.map((weakness) => weakness.share));
+  const maxProblemsPerGame = Math.max(
+    0.0001,
+    ...profile.time_controls.map((item) => item.problems_per_game),
+  );
   const maxTrend = Math.max(
     0.0001,
     ...profile.trend_points.map((point) => point.average_expected_score_loss),
@@ -77,12 +120,37 @@ export default function ProfilePage() {
           平均期望得分损失 <span className="mono">{formatLoss(profile.average_expected_score_loss)}</span> ·{" "}
           {profile.sample_size_note_zh}
         </p>
+        {profile.evidence_note_zh ? (
+          <details className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
+            <summary className="cursor-pointer">这些数字是怎么算出来的（点开看口径与边界）</summary>
+            <p className="mt-1 leading-relaxed">{profile.evidence_note_zh}</p>
+          </details>
+        ) : null}
       </section>
+
+      {profile.next_focus ? (
+        <section className="panel p-5 ring-1 ring-amber-900">
+          <h2 className="text-base font-semibold text-amber-200">如果只能先改一件事</h2>
+          <p className="mt-2 text-sm">{profile.next_focus.statement_zh}</p>
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            怎么练：{profile.next_focus.drill_zh}
+          </p>
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            这是按「样本量够 + 占比最高」挑出来的，不是按感觉挑的。
+            {CONFIDENCE_LABELS[profile.next_focus.confidence]
+              ? `当前证据强度：${CONFIDENCE_LABELS[profile.next_focus.confidence]}。`
+              : ""}
+          </p>
+        </section>
+      ) : null}
 
       <section className="panel p-5">
         <h2 className="text-base font-semibold">
           {profile.weaknesses.length > 0 ? "你的失误集中在哪些类型" : "还没有足够的失误数据"}
         </h2>
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          每一条都给出 95% 置信区间和趋势判断：区间宽说明样本还不够，宁可写得不确定，也不假装确定。
+        </p>
         {profile.weaknesses.length === 0 ? (
           <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
             分析更多对局后，这里会显示反复出现的失误类型。
@@ -94,19 +162,33 @@ export default function ProfilePage() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-sm font-medium">{weakness.label_zh}</span>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    {formatPercent(weakness.share)} 的重大失误 · {weakness.games} 局中 {weakness.event_count} 次 ·{" "}
+                    {formatPercent(weakness.share)} 的重大失误（95% 区间 {formatPercent(weakness.share_low)}–
+                    {formatPercent(weakness.share_high)}） · {weakness.games} 局中 {weakness.event_count} 次 ·{" "}
                     {CONFIDENCE_LABELS[weakness.confidence] ?? weakness.confidence}
                   </span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full ring-1 ring-slate-700">
-                  <div
-                    className="h-full bg-amber-500"
-                    style={{ width: `${(weakness.share / maxShare) * 100}%` }}
-                  />
-                </div>
+                <IntervalBar weakness={weakness} max={maxShare} />
                 <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
                   {weakness.statement_zh}
                 </p>
+                <p className={`mt-1 text-xs ${TREND_CLASSES[weakness.trend.direction] ?? ""}`}>
+                  趋势：{TREND_LABELS[weakness.trend.direction] ?? weakness.trend.direction}
+                  {weakness.trend.statement_zh ? ` —— ${weakness.trend.statement_zh}` : ""}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: "var(--muted)" }}>
+                  {Object.entries(weakness.by_phase).map(([phase, count]) => (
+                    <span key={phase}>
+                      {PHASE_SHORT[phase] ?? phase} {count}
+                    </span>
+                  ))}
+                  {weakness.clocked_events > 0 ? (
+                    <span>
+                      时间紧张 {weakness.under_time_pressure}/{weakness.clocked_events}
+                    </span>
+                  ) : (
+                    <span>没有逐步时钟，无法判断是否与时间有关</span>
+                  )}
+                </div>
                 <div className="mt-2 flex flex-wrap gap-1 text-xs">
                   {Object.entries(weakness.severity_mix).map(([severity, count]) => (
                     <span
@@ -127,7 +209,7 @@ export default function ProfilePage() {
                     {weakness.examples.map((example) => (
                       <Link
                         key={`${example.game_id}-${example.ply}`}
-                        href={`/games/${example.game_id}`}
+                        href={`/games/${example.game_id}?ply=${example.ply}`}
                         className="block truncate text-xs hover:underline"
                         style={{ color: "var(--muted)" }}
                       >
@@ -141,6 +223,44 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="panel p-5">
+        <h2 className="text-base font-semibold">时间维度：你是一快就崩，还是与时间无关</h2>
+        <p className="mt-2 text-sm">{profile.clock_note_zh}</p>
+        {profile.time_controls.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            {profile.time_controls.map((item) => (
+              <div key={item.speed}>
+                <div className="flex items-baseline justify-between text-xs">
+                  <span>
+                    {item.label_zh} · {item.games} 局
+                  </span>
+                  <span style={{ color: "var(--muted)" }}>
+                    每局 {item.problems_per_game.toFixed(2)} 个问题着法 · 平均损失{" "}
+                    {formatLoss(item.average_expected_score_loss)}
+                  </span>
+                </div>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full ring-1 ring-slate-700">
+                  <div
+                    className="h-full bg-violet-500"
+                    style={{
+                      width: `${(item.problems_per_game / maxProblemsPerGame) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              分档用的是 PGN 的 TimeControl 头（40 回合折算，Lichess 口径）。
+              不同时限的对手强度也不同，所以这是相关，不是因果。
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            这些对局的 PGN 里没有 TimeControl 头，无法按时限分档。
+          </p>
         )}
       </section>
 

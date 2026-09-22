@@ -505,3 +505,176 @@ def test_rule_game_summary_for_a_clean_game():
     summary = fallback.build_rule_summary([])
     assert "没有出现" in summary.summary
     assert summary.confidence <= 0.5
+
+
+# ------------------------------------------- 档案：置信区间 / 趋势 / 时间维度
+
+
+def test_weakness_carries_a_confidence_interval():
+    """百分比必须带区间：3/5 和 30/50 的占比一样，可信度差得远。"""
+    events = [make_event(error="hanging_piece", game_id="g{}".format(i)) for i in range(3)]
+    events += [make_event(error="king_safety", game_id="g{}".format(i)) for i in range(7)]
+    profile = build_profile(
+        make_profile_input(total_games=10, mistake_events=events, severity_counts={"blunder": 10})
+    )
+    top = next(item for item in profile.weaknesses if item.error_type.value == "king_safety")
+    assert top.event_count == 7
+    assert top.share == pytest.approx(0.7)
+    # 7/10 的 95% Wilson 区间约 (0.40, 0.89)：界面要把这个宽度显示出来
+    assert top.share_low == pytest.approx(0.397, abs=0.01)
+    assert top.share_high == pytest.approx(0.892, abs=0.01)
+    assert top.share_low < top.share < top.share_high
+
+
+def test_weakness_records_phase_mix_and_seen_range():
+    events = [
+        make_event(error="hanging_piece", game_id="g1", phase="opening"),
+        make_event(error="hanging_piece", game_id="g2", phase="endgame"),
+        make_event(error="hanging_piece", game_id="g3", phase="endgame"),
+    ]
+    profile = build_profile(
+        make_profile_input(total_games=3, mistake_events=events, severity_counts={"blunder": 3})
+    )
+    top = profile.weaknesses[0]
+    assert top.by_phase == {"opening": 1, "endgame": 2}
+    assert top.trend.available is False  # 3 局还不够判断趋势
+    assert "样本不足" in top.trend.statement_zh
+
+
+def test_trend_needs_enough_games_and_says_so():
+    events = [make_event(error="hanging_piece", game_id="g{}".format(i)) for i in range(12)]
+    profile = build_profile(
+        make_profile_input(
+            total_games=12,
+            mistake_events=events,
+            severity_counts={"blunder": 12},
+            game_trend=[{"game_id": "g{}".format(i), "player_moves": 20} for i in range(12)],
+        )
+    )
+    top = profile.weaknesses[0]
+    # 12 局 × 20 手 = 每半 6 局 120 手，刚好够
+    assert top.trend.available is True
+    assert top.trend.compared_types == 1
+    # 只检验一个类型时不收紧，如实写 0.05
+    assert top.trend.significance_level == 0.05
+
+
+def test_trend_tightens_the_threshold_when_many_types_are_tested():
+    """同时检验多个错误类型会放大假阳性，门槛要按 Bonferroni 收紧并写在结果里。"""
+    events = []
+    for index in range(12):
+        events.append(make_event(error="hanging_piece", game_id="g{}".format(index)))
+        events.append(make_event(error="king_safety", game_id="g{}".format(index)))
+    profile = build_profile(
+        make_profile_input(
+            total_games=12,
+            mistake_events=events,
+            severity_counts={"blunder": len(events)},
+            game_trend=[{"game_id": "g{}".format(i), "player_moves": 20} for i in range(12)],
+        )
+    )
+    assert len(profile.weaknesses) == 2
+    for weakness in profile.weaknesses:
+        assert weakness.trend.compared_types == 2
+        assert weakness.trend.significance_level == pytest.approx(0.025)
+    # 校正这件事要写进方法说明里，别让用户以为门槛还是 0.05
+    assert "Bonferroni" in profile.evidence_note_zh
+
+
+def test_trend_detects_a_real_improvement():
+    """前半段每局都有这类失误，后半段几乎没有了 → 应该敢说"在变少"。"""
+    games = ["g{}".format(i) for i in range(10)]
+    events = [make_event(error="hanging_piece", game_id=game) for game in games[:5] for _ in range(4)]
+    events += [make_event(error="hanging_piece", game_id=games[5])]
+    profile = build_profile(
+        make_profile_input(
+            total_games=10,
+            mistake_events=events,
+            severity_counts={"blunder": len(events)},
+            game_trend=[{"game_id": game, "player_moves": 120} for game in games],
+        )
+    )
+    top = profile.weaknesses[0]
+    assert top.trend.available is True
+    assert top.trend.direction == "improving"
+    assert top.trend.late_rate < top.trend.early_rate
+    assert "在变少" in top.trend.statement_zh
+
+
+def test_trend_refuses_to_call_noise_a_change():
+    """前后各 2 次 vs 1 次这种差别必须写成"没有明显差别"。"""
+    games = ["g{}".format(i) for i in range(10)]
+    events = [make_event(error="hanging_piece", game_id=games[0]), make_event(error="hanging_piece", game_id=games[1])]
+    events += [make_event(error="hanging_piece", game_id=games[5])]
+    profile = build_profile(
+        make_profile_input(
+            total_games=10,
+            mistake_events=events,
+            severity_counts={"blunder": len(events)},
+            game_trend=[{"game_id": game, "player_moves": 120} for game in games],
+        )
+    )
+    top = profile.weaknesses[0]
+    assert top.trend.available is True
+    assert top.trend.direction == "flat"
+    assert "没有明显差别" in top.trend.statement_zh
+
+
+def test_time_dimension_and_next_focus_on_the_profile():
+    events = [
+        make_event(error="hanging_piece", game_id="g{}".format(index), severity="blunder")
+        for index in range(5)
+    ]
+    events[0].update({"clock_seconds": 12.0, "time_pressure": True})
+    events[1].update({"clock_seconds": 200.0, "time_pressure": False})
+    profile = build_profile(
+        make_profile_input(
+            total_games=6,
+            mistake_events=events,
+            severity_counts={"blunder": 5},
+            game_trend=[
+                {"game_id": "g{}".format(i), "player_moves": 30, "speed": "blitz"} for i in range(6)
+            ],
+            time_control_counts=[
+                {"speed": "blitz", "games": 4, "problems": 6, "average_loss": 0.12},
+                {"speed": "bullet", "games": 2, "problems": 8, "average_loss": 0.2},
+            ],
+            clocked_problem_moves=2,
+            problems_under_pressure=1,
+        )
+    )
+    # 逐手时钟：2 个能判断，其中 1 个紧张
+    assert profile.clocked_problem_moves == 2
+    assert profile.problems_under_pressure == 1
+    assert profile.under_time_pressure_share == pytest.approx(0.5)
+    assert "1 个（50%）发生在时间紧张时" in profile.clock_note_zh
+
+    # 时限分档按快慢排序，并给出每局问题密度
+    assert [item.speed for item in profile.time_controls] == ["bullet", "blitz"]
+    bullet = profile.time_controls[0]
+    assert bullet.label_zh == "子弹"
+    assert bullet.problems_per_game == 4.0
+
+    # 先改哪一件：要有样本支撑才敢推荐，且必须带上练法
+    assert profile.next_focus is not None
+    assert profile.next_focus.error_type.value == "hanging_piece"
+    assert "先改这一件" in profile.next_focus.statement_zh
+    assert profile.next_focus.drill_zh
+
+    # 方法说明必须写清楚分母和区间（只检验一个类型时不需要提多重比较校正）
+    assert "95% Wilson 区间" in profile.evidence_note_zh
+    assert "Bonferroni" not in profile.evidence_note_zh
+
+
+def test_no_clocks_means_no_time_claim():
+    profile = build_profile(
+        make_profile_input(
+            mistake_events=[make_event(error="hanging_piece", game_id="g1")],
+            severity_counts={"blunder": 1},
+            clocked_problem_moves=0,
+            problems_under_pressure=0,
+        )
+    )
+    assert profile.under_time_pressure_share is None
+    assert "没有逐步剩余时间" in profile.clock_note_zh
+    assert "Include clock times" in profile.clock_note_zh

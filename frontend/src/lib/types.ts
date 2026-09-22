@@ -121,6 +121,14 @@ export interface MoveAssessment {
   expected_score_loss: number | null;
   evaluation_after: number | null;
   mate_after: number | null;
+  mate_before: number | null;
+  /** 走完这一手后剩余的时间（秒）；没有时钟信息时为 null。 */
+  clock_seconds: number | null;
+  /** null = 这盘棋没有时钟信息，无从判断（不能当成"不紧张"）。 */
+  time_pressure: boolean | null;
+  /** 置信度最高的失误原因；老数据（没有这个字段时）为 null。 */
+  primary_error: string | null;
+  primary_error_confidence: number | null;
   /** 引擎推荐：每一手都有，不只是关键局面。只在 fen_before 里合法。 */
   best_move_san: string | null;
   best_move_uci: string | null;
@@ -169,6 +177,15 @@ export interface EngineMeta {
   warnings: string[];
 }
 
+export interface TimeControl {
+  base_seconds: number;
+  increment_seconds: number;
+  estimated_seconds: number;
+  speed: string;
+  speed_label_zh: string;
+  readable_zh: string;
+}
+
 export interface GameReview {
   game_id: string;
   white: string;
@@ -177,6 +194,9 @@ export interface GameReview {
   player_color: Color;
   opening: string | null;
   headers: Record<string, string>;
+  time_control: TimeControl | null;
+  has_clocks: boolean;
+  time_pressure: TimePressureSummary;
   moves: MoveAssessment[];
   critical_moments: CriticalMoment[];
   counts: MoveCounts;
@@ -263,6 +283,19 @@ export interface ExampleMoment {
   solution_san: string | null;
 }
 
+export interface WeaknessTrend {
+  available: boolean;
+  direction: "improving" | "worsening" | "flat" | "unknown" | string;
+  statement_zh: string;
+  early_rate: number | null;
+  late_rate: number | null;
+  early_events: number;
+  late_events: number;
+  p_value: number | null;
+  compared_types: number;
+  significance_level: number;
+}
+
 export interface RecurringWeakness {
   error_type: string;
   label_zh: string;
@@ -273,7 +306,33 @@ export interface RecurringWeakness {
   severity_mix: Record<string, number>;
   confidence: string;
   statement_zh: string;
+  /** 占比的 95% Wilson 区间：小样本时区间很宽，界面要把宽度显示出来。 */
+  share_low: number;
+  share_high: number;
+  by_phase: Record<string, number>;
+  under_time_pressure: number;
+  clocked_events: number;
+  first_seen: string | null;
+  last_seen: string | null;
+  trend: WeaknessTrend;
   examples: ExampleMoment[];
+}
+
+export interface TimeControlBreakdown {
+  speed: string;
+  label_zh: string;
+  games: number;
+  problems: number;
+  problems_per_game: number;
+  average_expected_score_loss: number;
+}
+
+export interface NextFocus {
+  error_type: string;
+  label_zh: string;
+  statement_zh: string;
+  confidence: string;
+  drill_zh: string;
 }
 
 export interface PhaseBreakdown {
@@ -321,7 +380,14 @@ export interface ProfileSummary {
   top_concepts: ConceptFrequency[];
   trend: TrendSummary;
   trend_points: TrendPoint[];
+  time_controls: TimeControlBreakdown[];
+  clocked_problem_moves: number;
+  problems_under_pressure: number;
+  under_time_pressure_share: number | null;
+  clock_note_zh: string;
+  next_focus: NextFocus | null;
   sample_size_note_zh: string;
+  evidence_note_zh: string;
   generated_at: string | null;
 }
 
@@ -357,6 +423,25 @@ export interface LineWalk {
   complete: boolean;
   truncated: boolean;
   ends_in_mate: boolean;
+}
+
+export interface TimePressureMoment {
+  ply: number;
+  move_number: number;
+  san: string;
+  clock_seconds: number;
+  severity: Severity | null;
+  expected_score_loss: number | null;
+}
+
+export interface TimePressureSummary {
+  available: boolean;
+  limit_seconds: number | null;
+  problem_moves: number;
+  under_pressure: number;
+  share: number;
+  moments: TimePressureMoment[];
+  statement_zh: string;
 }
 
 export interface MomentLines {

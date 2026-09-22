@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from models.game import TimeControl
 from models.enums import (
     AnalysisStatus,
     Color,
@@ -65,6 +66,11 @@ class MoveAssessment(BaseModel):
     mate_after: Optional[int] = None
     #: 引擎在走子前看到的杀棋（正数 = 玩家可以 N 步将杀）。出题要靠它。
     mate_before: Optional[int] = None
+    #: 走完这一手之后剩余的时间（秒），来自 PGN 的 ``[%clk]`` 注释。
+    #: 没有就是 None——这一项从来不靠估。
+    clock_seconds: Optional[float] = None
+    #: 是否时间紧张。None = 这盘棋的 PGN 没有时钟信息，无从判断。
+    time_pressure: Optional[bool] = None
     # --- engine recommendation for the position this move was played in ---
     best_move_san: Optional[str] = None
     best_move_uci: Optional[str] = None
@@ -82,6 +88,11 @@ class MoveAssessment(BaseModel):
     played_line_san: List[str] = Field(default_factory=list)
     concept_tags: List[ConceptType] = Field(default_factory=list)
     decision_error_tags: List[DecisionErrorType] = Field(default_factory=list)
+    #: 置信度最高的决策失误原因（``decision_error_tags`` 已经按置信度排序）。
+    #: 单独存一份，是因为档案按它做聚合：早先这份聚合依赖"这一手是不是关键局面"，
+    #: 而一盘棋只有几个关键局面，导致大量失误被记成"原因不明确"。
+    primary_error: Optional[DecisionErrorType] = None
+    primary_error_confidence: Optional[float] = None
     is_critical: bool = False
 
 
@@ -145,6 +156,35 @@ class EngineMeta(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
+class TimePressureMoment(BaseModel):
+    """一个发生在时间紧张时的问题着法（附上真实剩余秒数）。"""
+
+    ply: int
+    move_number: int
+    san: str
+    clock_seconds: float
+    severity: Optional[Severity] = None
+    expected_score_loss: Optional[float] = None
+
+
+class TimePressureSummary(BaseModel):
+    """单局的时间归因：问题着法有多少发生在时间紧张时。
+
+    ``available=False`` 表示这盘棋的 PGN 没有逐手时钟——这时**什么都不说**，
+    而不是写一句"可能和时间有关"。这正是原来那个 TIME_PRESSURE_UNKNOWN 想表达的意思，
+    现在它有了确定的答案：要么有数据（能判），要么没有（如实说没有）。
+    """
+
+    available: bool = False
+    limit_seconds: Optional[float] = None
+    problem_moves: int = 0
+    under_pressure: int = 0
+    share: float = 0.0
+    moments: List[TimePressureMoment] = Field(default_factory=list)
+    #: 默认就是一句真话：早期存的复盘没有这个字段，界面不能因此显示空白
+    statement_zh: str = "这盘棋没有携带时间信息，无法判断失误是否与时间紧张有关。"
+
+
 class GameReview(BaseModel):
     game_id: str
     white: str
@@ -153,6 +193,11 @@ class GameReview(BaseModel):
     player_color: Color
     opening: Optional[str] = None
     headers: dict = Field(default_factory=dict)
+    #: 本局的时间设置（来自 PGN 头）。没有 TimeControl 时是 None。
+    time_control: Optional[TimeControl] = None
+    #: 这盘棋的 PGN 是否带逐手时钟（决定能不能做时间压力归因）。
+    has_clocks: bool = False
+    time_pressure: "TimePressureSummary" = Field(default_factory=lambda: TimePressureSummary())
     moves: List[MoveAssessment] = Field(default_factory=list)
     critical_moments: List[CriticalMoment] = Field(default_factory=list)
     counts: MoveCounts = Field(default_factory=MoveCounts)

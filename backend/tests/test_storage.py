@@ -322,3 +322,63 @@ def test_ensure_columns_is_idempotent(temp_database):
     from storage.db import ensure_columns
 
     assert ensure_columns(temp_database.engine) == []
+
+
+def test_primary_error_covers_every_problem_move_not_just_critical_ones(temp_database):
+    """回归测试：档案里的"主要失误原因"必须覆盖**每一个**问题着法。
+
+    这条曾经是真 bug：primary_error 只从关键局面的证据里取，而一盘棋最多几个关键局面，
+    于是其余失误全被记成"原因不明确"——档案里最大的那一类反而成了"说不清"。
+    """
+    from analysis.profile import build_profile
+    from models.enums import DecisionErrorType
+    from models.review import MoveAssessment
+    from storage.models import MistakeEvent
+    from storage.repository import collect_profile_input
+
+    review = build_review()
+    # 这一手不是关键局面（critical_moments 里只有 ply=6），但确实有问题、也有原因
+    extra = MoveAssessment(
+        ply=20,
+        move_number=10,
+        color=Color.BLACK,
+        san="Nd4",
+        uci="f6d4",
+        fen_before="before-20",
+        fen_after="after-20",
+        is_player_move=True,
+        severity=Severity.BLUNDER,
+        expected_score_loss=0.55,
+        evaluation_after=-3.0,
+        decision_error_tags=[DecisionErrorType.HANGING_PIECE],
+        primary_error=DecisionErrorType.HANGING_PIECE,
+        primary_error_confidence=0.9,
+        is_critical=False,
+    )
+    review.moves.append(extra)
+    review.created_at = datetime(2024, 1, 2, 12, 0, 0)
+
+    with temp_database.session() as session:
+        save_review(session, review, "1. e4 e5 *")
+
+    with temp_database.session() as session:
+        events = {
+            event.ply: event for event in session.query(MistakeEvent).all()
+        }
+        data = collect_profile_input(session)
+    assert events[20].primary_error == DecisionErrorType.HANGING_PIECE.value
+    assert events[20].primary_error_confidence == 0.9
+
+    profile = build_profile(data)
+    unknown = next(
+        (item for item in profile.weaknesses if item.error_type is DecisionErrorType.UNKNOWN),
+        None,
+    )
+    # 只剩 fixture 里那个本来就没有任何标签的关键局面算"原因不明确"；
+    # 新增的那一手（非关键局面、但有明确原因）必须落进它自己的类别里。
+    assert unknown is None or unknown.event_count == 1
+    hanging = next(
+        item for item in profile.weaknesses if item.error_type is DecisionErrorType.HANGING_PIECE
+    )
+    assert hanging.event_count >= 1
+    assert hanging.games == 1

@@ -56,6 +56,13 @@ class Game(Base):
     critical_count = Column(Integer, default=0)
     average_loss = Column(Float, default=0.0)
     engine_name = Column(String(64), default="")
+    #: 本局的时间设置（来自 PGN 头）。没有 TimeControl 时留空。
+    time_control_speed = Column(String(16), nullable=True, index=True)
+    time_control_base = Column(Integer, nullable=True)
+    time_control_increment = Column(Integer, nullable=True)
+    #: 逐手时钟覆盖率：有问题着法里有多少带时钟信息（0 = 这盘棋判不了时间压力）
+    clocked_problem_moves = Column(Integer, default=0)
+    problems_under_pressure = Column(Integer, default=0)
     analysis_seconds = Column(Float, default=0.0)
     status = Column(String(16), default="completed")
     warnings = Column(JSON, default=list)
@@ -151,6 +158,10 @@ class MistakeEvent(Base):
     primary_error_confidence = Column(Float, default=0.0)
     decision_error_tags = Column(JSON, default=list)
     concept_tags = Column(JSON, default=list)
+    #: 走完这一手之后剩余的时间（秒，来自 PGN 的 %clk）；
+    #: time_pressure 为 None = 这盘棋没有时钟信息，不能当成"不紧张"。
+    clock_seconds = Column(Float, nullable=True)
+    time_pressure = Column(Boolean, nullable=True, index=True)
     is_critical = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime, default=_utcnow, nullable=False, index=True)
 

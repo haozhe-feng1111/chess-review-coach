@@ -12,9 +12,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 import GameReviewPage from "./page";
 
-// 路由参数
+// 路由参数：useSearchParams 由每个用例通过 setSearch() 控制（?ply= 深链用得到）
+let search = "";
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "game-1" }),
+  useSearchParams: () => new URLSearchParams(search),
 }));
 
 // 棋盘是个重组件（依赖 dnd-kit / ResizeObserver），和被测逻辑无关，替换成占位元素
@@ -248,6 +250,7 @@ function stubFetch() {
 
 describe("复盘页", () => {
   beforeEach(() => {
+    search = "";
     stubFetch();
   });
 
@@ -302,5 +305,22 @@ describe("复盘页", () => {
     expect(screen.getByText(/全部问题着法（1 个）/)).toBeTruthy();
     // 问题着法那一行里有它的引擎推荐
     expect(screen.getAllByText("Nf3").length).toBeGreaterThan(0);
+  });
+
+  it("带 ?ply= 进来时直接跳到那一手（档案页的例子要能落回具体局面）", async () => {
+    search = "ply=2";
+    render(<GameReviewPage />);
+
+    // ply=2 是黑方第一手，棋盘应该停在"白方已经走了 e4"之后的局面
+    await waitFor(() => expect(screen.getByTestId("board").textContent).toBe("after-e4"));
+  });
+
+  it("?ply= 指向不存在的着法时退回关键局面，而不是白屏", async () => {
+    search = "ply=999";
+    render(<GameReviewPage />);
+
+    await waitFor(() => expect(screen.getByTestId("board")).toBeTruthy());
+    // 第一个关键局面的决策点 = 这一手之前的位置
+    expect(screen.getByTestId("board").textContent).not.toBe("");
   });
 });

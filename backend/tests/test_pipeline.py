@@ -7,12 +7,15 @@ individual pieces working in isolation.
 
 from pathlib import Path
 
+import re
+
 import pytest
 
 from analysis.pgn import parse_pgn
 from analysis.pipeline import GameAnalyzer, PipelineConfig
 from engine.cache import InMemoryCache
 from models.enums import Color, Severity
+from models.evidence import CandidateMove, PositionEval, WdlDistribution
 from tests.conftest import requires_engine
 
 SCHOLARS_MATE = """[Event "Test"]
@@ -240,3 +243,134 @@ def test_review_serializes_and_deserializes_unchanged(engine):
     payload = review.model_dump(mode="json")
     restored = GameReview.model_validate(payload)
     assert restored.model_dump(mode="json") == payload
+
+
+# ------------------------------------------------- 逐手时钟 → 时间压力（真实引擎）
+
+#: 白方在只剩 11 秒时走了 5.Bxf7+，被 Kxf7 白吃一象——时间压力下的典型崩盘
+CLOCKED_BLUNDER = """[Event "Live Chess"]
+[Site "Chess.com"]
+[White "Alpha"]
+[Black "Beta"]
+[Result "0-1"]
+[TimeControl "180"]
+
+1. e4 {[%clk 0:02:55]} e5 {[%clk 0:02:56]} 2. Nf3 {[%clk 0:02:40]} Nc6 {[%clk 0:02:41]}
+3. Bc4 {[%clk 0:02:20]} Bc5 {[%clk 0:02:21]} 4. Qe2 {[%clk 0:00:45]} Nf6 {[%clk 0:00:50]}
+5. Bxf7+ {[%clk 0:00:11]} Kxf7 {[%clk 0:00:14]} 6. Qc4+ {[%clk 0:00:09]} d5 0-1
+"""
+
+
+def strip_clocks(pgn: str) -> str:
+    return re.sub(r"\s*\{\[%clk[^}]*\]\}", "", pgn)
+
+
+@requires_engine
+def test_time_pressure_attribution_on_a_clocked_game(engine):
+    """有逐手时钟时：能不能说出"这一步是在剩 11 秒时走的"。"""
+    game = parse_pgn(CLOCKED_BLUNDER, player_color=Color.WHITE)
+    assert game.has_clocks is True
+    analyzer = GameAnalyzer(
+        engine,
+        cache=InMemoryCache(),
+        config=PipelineConfig(pass1_depth=10, pass2_depth=12, deep=True, threads=2, hash_mb=32),
+    )
+    review = analyzer.analyze(game, "clocked")
+
+    assert review.has_clocks is True
+    assert review.time_control is not None and review.time_control.base_seconds == 180
+    summary = review.time_pressure
+    assert summary.available is True
+    assert summary.limit_seconds == 20.0           # 3 分钟棋：10% = 18 秒 < 20 秒下限
+    assert summary.problem_moves >= 1
+    assert summary.under_pressure >= 1
+    assert summary.moments[0].clock_seconds == 11.0
+    assert "剩 11 秒" in summary.statement_zh
+
+    blunder = next(move for move in review.moves if move.san == "Bxf7+")
+    assert blunder.clock_seconds == 11.0
+    assert blunder.time_pressure is True
+    assert blunder.severity is not None and blunder.severity.is_problem
+
+
+@requires_engine
+def test_without_clocks_the_review_says_so_instead_of_guessing(engine):
+    """没有时钟信息时：time_pressure 保持 None，并给出中文说明，而不是猜一个结论。"""
+    game = parse_pgn(strip_clocks(CLOCKED_BLUNDER), player_color=Color.WHITE)
+    assert game.has_clocks is False
+    assert all(move.clock_seconds is None for move in game.moves)
+
+    review = GameAnalyzer(
+        engine,
+        cache=InMemoryCache(),
+        config=PipelineConfig(pass1_depth=10, pass2_depth=12, deep=True, threads=2, hash_mb=32),
+    ).analyze(game, "unclocked")
+
+    assert review.has_clocks is False
+    assert review.time_pressure.available is False
+    assert "没有每步剩余时间" in review.time_pressure.statement_zh
+    assert all(move.time_pressure is None for move in review.moves)
+
+
+def make_eval(fen, uci, san, cp, win=0.9, draw=0.09, loss=0.01) -> PositionEval:
+    """造一个假的引擎结果，用来确定性地复现"两遍分析改判"的场景。"""
+    return PositionEval(
+        fen=fen,
+        pov_color=Color.WHITE,
+        depth=12,
+        multipv=1,
+        engine_name="fake",
+        candidates=[
+            CandidateMove(
+                uci=uci,
+                san=san,
+                cp=cp,
+                wdl=WdlDistribution(win=win, draw=draw, loss=loss),
+                expected_score=round(win + 0.5 * draw, 4),
+            )
+        ],
+    )
+
+
+def test_second_pass_clears_tags_when_a_problem_becomes_a_good_move():
+    """回归测试：浅搜判成"有问题"的着法，被深搜改判为"走对了"之后不能留着旧标签。
+
+    这条曾经是真 bug：第二遍不重新跑概念检测，但因为"走对了就不打标签"而直接 continue，
+    于是第一遍留下的 concept_tags 会残留在一条已经没问题的着法上，
+    界面上就出现"最佳着法 + 丢子"这种自相矛盾的标注。
+    真引擎下它表现为偶发失败（两次搜索的哈希状态不同会改变改判结果），所以这里用假评估确定性地复现。
+    """
+    game = parse_pgn(LEGAL_GAME, player_color=Color.WHITE)
+    analyzer = GameAnalyzer(None, cache=InMemoryCache(), config=FAST_CONFIG)
+    positions, slots = analyzer._build_slots(game)
+    target = slots[0]                      # 白方第一手 e4
+    played_uci = target.move.uci
+    board_before = positions[target.before].board
+    board_after = positions[target.after].board
+
+    # 第一遍：白方"走错了"——引擎推荐另一步，期望得分差很多
+    positions[target.before].shallow = make_eval(
+        board_before.fen(), "d2d4", "d4", cp=30, win=0.55, draw=0.4, loss=0.05
+    )
+    positions[target.after].shallow = make_eval(
+        board_after.fen(), "d7d5", "d5", cp=-420, win=0.05, draw=0.15, loss=0.8
+    )
+    analyzer._assemble_and_classify(positions, slots, deep=False)
+    assert target.severity is not None and target.severity.is_problem
+    assert target.concepts, "第一遍应该给问题着法打上概念标签"
+
+    # 第二遍：深搜改判——这一步就是引擎最佳着法
+    positions[target.before].deep = make_eval(
+        board_before.fen(), played_uci, target.move.san, cp=25, win=0.5, draw=0.45, loss=0.05
+    )
+    positions[target.after].deep = make_eval(
+        board_after.fen(), "d7d5", "d5", cp=20, win=0.48, draw=0.46, loss=0.06
+    )
+    analyzer._assemble_and_classify(positions, slots, deep=True)
+
+    assert target.severity is not None and not target.severity.is_problem
+    assert target.concepts == [], "改判为走对了之后，旧的概念标签必须清掉"
+    assert target.errors == []
+    assessment = analyzer._to_assessment(target, positions)
+    assert assessment.concept_tags == []
+    assert assessment.decision_error_tags == []

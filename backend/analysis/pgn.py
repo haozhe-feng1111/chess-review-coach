@@ -6,6 +6,7 @@ surfaced as a :class:`PgnError` with the underlying reason.
 """
 
 import io
+import re
 from typing import List, Optional, Sequence
 
 import chess
@@ -16,6 +17,28 @@ from models.enums import Color
 from models.game import ParsedGame, ParsedMove
 
 MAX_PLIES = 400  # a very long game; anything beyond this is almost certainly junk
+
+#: ``[%clk 0:04:31]`` / ``[%clk 0:02:59.9]`` / ``[%clk 1:30:00]``
+CLOCK_PATTERN = re.compile(r"\[%clk\s+(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)\]")
+
+
+def parse_clock_comment(comment: Optional[str]) -> Optional[float]:
+    """Seconds remaining from a PGN clock comment; ``None`` when there is no clock.
+
+    Lichess and chess.com both write the time **left after the move** as
+    ``[%clk H:MM:SS]``. The value is taken literally — this is the only trustworthy
+    source of "how much time was on the clock", and its absence is reported as
+    unknown rather than estimated.
+    """
+    if not comment:
+        return None
+    match = CLOCK_PATTERN.search(comment)
+    if match is None:
+        return None
+    hours, minutes, seconds = match.groups()
+    total = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    return round(total, 3)
+
 
 
 def _read_game(pgn_text: str) -> chess.pgn.Game:
@@ -111,7 +134,10 @@ def parse_pgn(
     initial_fen = board.fen()
     moves: List[ParsedMove] = []
 
+    node = game
     for index, move in enumerate(game.mainline_moves(), start=1):
+        node = node.variation(0) if node.variations else node
+        clock = parse_clock_comment(node.comment) if node is not None else None
         if index > MAX_PLIES:
             warnings.append("棋局超过 {} 步，仅分析前 {} 步。".format(MAX_PLIES, MAX_PLIES))
             break
@@ -135,6 +161,7 @@ def parse_pgn(
                 uci=move.uci(),
                 fen_before=fen_before,
                 fen_after=board.fen(),
+                clock_seconds=clock,
             )
         )
 
@@ -142,6 +169,7 @@ def parse_pgn(
         raise PgnError("PGN contains no moves", detail="mainline is empty")
 
     from analysis.openings import identify_opening
+    from analysis.timecontrol import parse_time_control
 
     opening = headers.get("Opening") or identify_opening([move.san for move in moves])
 
@@ -155,5 +183,6 @@ def parse_pgn(
         result=headers.get("Result", "*"),
         initial_fen=initial_fen,
         opening=opening,
+        time_control=parse_time_control(headers),
         warnings=warnings,
     )

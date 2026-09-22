@@ -274,6 +274,58 @@ async function main() {
     check("phase.share", phase.share, isNumber, "number");
   }
 
+  section("档案诊断 (GET /api/profile)");
+  check("profile.next_focus", profile.next_focus, (v) => v === null || isString(v?.label_zh), "null | {label_zh}");
+  check("profile.evidence_note_zh", profile.evidence_note_zh, isString, "string");
+  check("profile.clock_note_zh", profile.clock_note_zh, (v) => isString(v) && v.length > 0, "non-empty");
+  check("profile.time_controls", profile.time_controls, isArray, "array");
+  check("profile.clocked_problem_moves", profile.clocked_problem_moves, isNumber, "number");
+  check("profile.under_time_pressure_share", profile.under_time_pressure_share, nullableNumber, "number|null");
+  for (const item of profile.time_controls) {
+    check("timeControl.label_zh", item.label_zh, isString, "string");
+    check("timeControl.games", item.games, isNumber, "number");
+    check("timeControl.problems_per_game", item.problems_per_game, isNumber, "number");
+  }
+  for (const weakness of profile.weaknesses) {
+    check("weakness.share_low", weakness.share_low, isNumber, "number");
+    check("weakness.share_high", weakness.share_high, isNumber, "number");
+    check("weakness.by_phase", weakness.by_phase, (v) => typeof v === "object" && v !== null, "object");
+    check("weakness.clocked_events", weakness.clocked_events, isNumber, "number");
+    check("weakness.trend", weakness.trend, (v) => isBool(v?.available) && isString(v?.direction), "trend object");
+    check(
+      "weakness.example href 需要 ply",
+      weakness.examples[0]?.ply,
+      (v) => v === undefined || isNumber(v),
+      "number | undefined",
+    );
+  }
+
+  section("复盘的时限与时间归因 (GET /api/games/{id})");
+  check("review.has_clocks", review.has_clocks, isBool, "boolean");
+  check("review.time_pressure", review.time_pressure, (v) => isBool(v?.available), "summary object");
+  check(
+    "review.time_pressure.statement_zh",
+    review.time_pressure?.statement_zh,
+    (v) => isString(v) && v.length > 0,
+    "non-empty",
+  );
+  if (review.time_pressure?.available) {
+    check("timePressure.limit_seconds", review.time_pressure.limit_seconds, isNumber, "number");
+    check("timePressure.problem_moves", review.time_pressure.problem_moves, isNumber, "number");
+    for (const moment of review.time_pressure.moments) {
+      check("timePressure.moment.clock_seconds", moment.clock_seconds, isNumber, "number");
+      check("timePressure.moment.san", moment.san, isString, "string");
+    }
+    console.log(`  时间压力：${review.time_pressure.statement_zh}`);
+  } else {
+    console.log("  · 这盘棋的 PGN 没有逐手时钟（如实返回 available=false）");
+  }
+  for (const move of review.moves) {
+    if (move.is_player_move && move.severity && ["mistake", "blunder"].includes(move.severity)) {
+      check("move.primary_error", move.primary_error, nullableString, "string|null");
+    }
+  }
+
   section("对局列表 (GET /api/games)");
   const { games } = await get("/api/games");
   check("games", games, isArray, "array");

@@ -12,7 +12,7 @@ something very different at +0.2 than at +9.0.
 """
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 from models.enums import Severity
 
@@ -105,11 +105,31 @@ class DetectionThresholds:
 
 
 @dataclass(frozen=True)
+class TimePressureThresholds:
+    """什么时候算"时间紧张"。
+
+    两个条件取较宽的那个：剩余时间少于本局基本用时的 10%，或者少于 20 秒。
+    "10%" 对不同时限都成立（5 分钟棋的 30 秒、15 分钟棋的 90 秒），
+    20 秒的下限是为了别在超快棋里把每一步都算成时间紧张。
+    这是工程默认值，不是标定过的结论——所以界面上永远同时给出**实际剩余秒数**，
+    让使用者自己判断这个标签合不合理。
+    """
+
+    fraction_of_base: float = 0.10
+    floor_seconds: float = 20.0
+
+    def limit_for(self, base_seconds: Optional[int]) -> float:
+        base = float(base_seconds or 0)
+        return max(self.floor_seconds, self.fraction_of_base * base)
+
+
+@dataclass(frozen=True)
 class AnalysisThresholds:
     severity: SeverityThresholds = SeverityThresholds()
     criticality: CriticalityWeights = CriticalityWeights()
     phase: PhaseThresholds = PhaseThresholds()
     detection: DetectionThresholds = DetectionThresholds()
+    time_pressure: TimePressureThresholds = TimePressureThresholds()
     # Minimum number of games before profile statistics claim a recurring pattern.
     profile_recurring_min_games: int = 3
     profile_recurring_min_events: int = 5

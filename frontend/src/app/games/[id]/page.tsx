@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import Board from "@/components/Board";
@@ -32,7 +32,10 @@ const PLAYED_ARROW_COLOR = "#f2645a";
 
 export default function GameReviewPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const gameId = params?.id ?? "";
+  /** 档案页的例子会带 ?ply=N 过来，直接跳到那一手（决策点）。 */
+  const targetPly = Number(searchParams?.get("ply") ?? "") || null;
 
   const [review, setReview] = useState<GameReview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -61,11 +64,14 @@ export default function GameReviewPage() {
       .then(({ review: loaded }) => {
         if (cancelled) return;
         setReview(loaded);
-        const first = loaded.critical_moments[0];
-        if (first) {
-          setSelectedPly(first.ply);
+        // 带 ?ply= 进来时优先听它：档案页的"例子"要能直接落在那一手上
+        const wanted = loaded.moves.some((move) => move.ply === targetPly)
+          ? targetPly
+          : loaded.critical_moments[0]?.ply ?? null;
+        if (wanted !== null) {
+          setSelectedPly(wanted);
           // 关键局面展示的是「你当时面对的局面」，也就是这一手走出之前的位置。
-          setPositionIndex(Math.max(0, first.ply - 1));
+          setPositionIndex(Math.max(0, wanted - 1));
         } else {
           setPositionIndex(loaded.moves.length);
         }
@@ -78,7 +84,7 @@ export default function GameReviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [gameId]);
+  }, [gameId, targetPly]);
 
   const loadExplanation = useCallback(
     async (ply: number) => {
@@ -351,6 +357,7 @@ export default function GameReviewPage() {
               结果 {review.result} · 你执{review.player_color === "white" ? "白" : "黑"}方
               {review.opening ? ` · ${review.opening}` : ""} · 引擎 {review.engine.engine_name} ·
               用时 {review.engine.elapsed_seconds.toFixed(1)}s
+              {review.time_control ? ` · ${review.time_control.readable_zh}` : ""}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -369,6 +376,17 @@ export default function GameReviewPage() {
             </span>
           </div>
         </div>
+
+        <p
+          className={`mt-3 rounded px-3 py-2 text-xs ring-1 ${
+            review.time_pressure?.available && review.time_pressure.under_pressure > 0
+              ? "bg-amber-950/40 text-amber-200 ring-amber-900"
+              : "ring-slate-700"
+          }`}
+        >
+          <span className="font-medium">时间：</span>
+          {review.time_pressure?.statement_zh ?? "这盘棋没有携带时间信息。"}
+        </p>
 
         {review.warnings.length > 0 ? (
           <ul className="mt-3 space-y-1 text-xs text-amber-300">

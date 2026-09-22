@@ -23,6 +23,7 @@ from analysis.board import find_move_by_uci
 from analysis.lines import walk_line
 from analysis.pgn import count_games, parse_pgn
 from analysis.puzzles import extract_puzzles
+from analysis.timepressure import build_time_pressure_summary
 from analysis.pipeline import GameAnalyzer, PipelineConfig
 from analysis.profile import build_profile
 from coaching.explainer import CoachExplainer
@@ -618,6 +619,12 @@ class AnalysisService:
             review = get_review(session, game_id)
         if review is not None:
             review.llm_available = self._coach.llm_available
+            # 时间归因是着法 + 时限的纯函数，读的时候重算一遍：
+            # 这样在"加入这个功能之前分析的"对局上也能给出正确的那句话，
+            # 而不是返回一个空字符串（不需要重跑引擎）。
+            review.time_pressure = build_time_pressure_summary(
+                review.moves, review.time_control
+            )
         return review
 
     def list_games(self, limit: int = 50, offset: int = 0) -> List[GameListItem]:

@@ -1,5 +1,5 @@
 /**
- * 对着**真实后端**跑的端到端冒烟测试（默认不跑，见文件末尾的开关）。
+ * 对着**真实后端**跑的端到端冒烟测试（默认不跑，见下面的 LIVE_API 开关）。
  *
  * 为什么需要它：题目页曾经在开发环境里永远停在「正在加载题目…」——
  * 原因是 next.config 里开着 reactStrictMode，组件用 ref 记住"已经请求过"、
@@ -17,6 +17,7 @@ import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
+import ProfilePage from "@/app/profile/page";
 import PuzzlePage from "./page";
 import { API_BASE } from "@/lib/api";
 
@@ -58,6 +59,29 @@ describe("题目页 × 真实后端", () => {
         expect(detail.legal_moves).toContain(puzzle.solution_uci);
         expect(detail.steps.length).toBeGreaterThan(0);
       }
+    },
+  );
+});
+
+describe("档案页 × 真实后端", () => {
+  it.skipIf(process.env.LIVE_API !== "1")(
+    "真实档案能渲染出诊断区块，且时间那一块说的是实话",
+    { timeout: 40000 },
+    async () => {
+      render(
+        <StrictMode>
+          <ProfilePage />
+        </StrictMode>,
+      );
+
+      await waitFor(() => expect(screen.getByText("个人档案")).toBeTruthy(), {
+        timeout: 15000,
+      });
+      // 方法说明必须存在（这些数字怎么算出来的）
+      expect(screen.getByText(/这些数字是怎么算出来的/)).toBeTruthy();
+      // 时间维度：要么给出结论，要么如实说没有时钟信息——不能是空白
+      const clockSection = screen.getByText(/时间维度/).closest("section");
+      expect(clockSection?.textContent ?? "").toMatch(/时间紧张|没有逐步剩余时间/);
     },
   );
 });

@@ -72,6 +72,13 @@ def save_review(session: Session, review: GameReview, pgn: str) -> Game:
         critical_count=len(review.critical_moments),
         average_loss=review.average_expected_score_loss,
         engine_name=review.engine.engine_name,
+        time_control_speed=review.time_control.speed if review.time_control else None,
+        time_control_base=review.time_control.base_seconds if review.time_control else None,
+        time_control_increment=(
+            review.time_control.increment_seconds if review.time_control else None
+        ),
+        clocked_problem_moves=review.time_pressure.problem_moves,
+        problems_under_pressure=review.time_pressure.under_pressure,
         analysis_seconds=review.engine.elapsed_seconds,
         status=review.status.value,
         warnings=review.warnings,
@@ -135,6 +142,15 @@ def save_review(session: Session, review: GameReview, pgn: str) -> Game:
         moment = next((m for m in review.critical_moments if m.ply == move.ply), None)
         errors = error_by_ply.get(move.ply, [])
         primary = _primary_error(errors)
+        # 主因优先取着法自带的那份：它覆盖**每一个**问题着法，
+        # 而关键局面的证据只有几个（一盘最多 max_critical_moments 个）。
+        # 老数据（这次改动之前存的复盘）没有这两个字段，才回退到证据里找。
+        primary_type = move.primary_error or primary.type
+        primary_confidence = (
+            move.primary_error_confidence
+            if move.primary_error_confidence is not None
+            else primary.confidence
+        )
         event = MistakeEvent(
             game_id=game_id,
             ply=move.ply,
@@ -149,10 +165,14 @@ def save_review(session: Session, review: GameReview, pgn: str) -> Game:
             evaluation_after=move.evaluation_after,
             san=move.san,
             one_liner_zh=moment.one_liner_zh if moment else "",
-            primary_error=primary.type.value,
-            primary_error_confidence=primary.confidence,
+            primary_error=primary_type.value
+            if isinstance(primary_type, DecisionErrorType)
+            else str(primary_type),
+            primary_error_confidence=primary_confidence,
             decision_error_tags=[tag.value for tag in move.decision_error_tags],
             concept_tags=[tag.value for tag in move.concept_tags],
+            clock_seconds=move.clock_seconds,
+            time_pressure=move.time_pressure,
             is_critical=move.is_critical,
             created_at=review.created_at or datetime.utcnow(),
         )
@@ -205,6 +225,12 @@ def get_review(session: Session, game_id: str) -> Optional[GameReview]:
         return None
     review = GameReview.model_validate(game.review_json)
     review.created_at = game.created_at
+    for move in review.moves:
+        # 老复盘里没存 primary_error（那时它只从关键局面的证据里取，覆盖不到每一手）。
+        # decision_error_tags 本来就是按置信度排序的，第一个就是主因——
+        # 用同一条规则在读取时补齐，不重跑引擎，也不编造。
+        if move.primary_error is None and move.decision_error_tags:
+            move.primary_error = move.decision_error_tags[0]
     return review
 
 def list_games(session: Session, limit: int = 50, offset: int = 0) -> List[GameListItem]:
@@ -274,6 +300,11 @@ class ProfileInput:
     phase_counts: List[Dict[str, object]] = field(default_factory=list)
     concept_counts: List[Dict[str, object]] = field(default_factory=list)
     game_trend: List[Dict[str, object]] = field(default_factory=list)
+    #: 按时限分档的对局/问题着法/损失（来自 PGN 的 TimeControl 头）
+    time_control_counts: List[Dict[str, object]] = field(default_factory=list)
+    #: 有逐手时钟的问题着法总数，以及其中"时间紧张"的个数（覆盖率决定能不能下结论）
+    clocked_problem_moves: int = 0
+    problems_under_pressure: int = 0
 
 
 def collect_profile_input(session: Session) -> ProfileInput:
@@ -337,6 +368,9 @@ def collect_profile_input(session: Session) -> ProfileInput:
                 "primary_error_confidence": event.primary_error_confidence or 0.0,
                 "decision_error_tags": list(event.decision_error_tags or []),
                 "concept_tags": list(event.concept_tags or []),
+                "clock_seconds": event.clock_seconds,
+                "time_pressure": event.time_pressure,
+                "game_speed": getattr(game, "time_control_speed", None) if game else None,
                 "is_critical": bool(event.is_critical),
                 "created_at": event.created_at,
                 "one_liner_zh": event.one_liner_zh or "",
@@ -376,12 +410,42 @@ def collect_profile_input(session: Session) -> ProfileInput:
         for key, value in sorted(concept_counts.items(), key=lambda item: -item[1])
     ]
 
+    for speed, games_count, problems, average in session.execute(
+        select(
+            Game.time_control_speed,
+            func.count(Game.id),
+            func.sum(Game.blunders + Game.mistakes + Game.inaccuracies),
+            func.avg(Game.average_loss),
+        )
+        .where(Game.time_control_speed.is_not(None))
+        .group_by(Game.time_control_speed)
+    ):
+        data.time_control_counts.append(
+            {
+                "speed": str(speed),
+                "games": int(games_count),
+                "problems": int(problems or 0),
+                "average_loss": float(average or 0.0),
+            }
+        )
+
+    for clocked, pressed in session.execute(
+        select(
+            func.count(MistakeEvent.id),
+            func.sum(case((MistakeEvent.time_pressure.is_(True), 1), else_=0)),
+        ).where(MistakeEvent.clock_seconds.is_not(None))
+    ):
+        data.clocked_problem_moves = int(clocked or 0)
+        data.problems_under_pressure = int(pressed or 0)
+
     for game in session.execute(select(Game).order_by(Game.created_at.asc())).scalars():
         data.game_trend.append(
             {
                 "game_id": game.id,
                 "created_at": game.created_at,
                 "average_loss": game.average_loss or 0.0,
+                "player_moves": game.player_move_count or 0,
+                "speed": game.time_control_speed,
                 "problems": (game.blunders or 0) + (game.mistakes or 0) + (game.inaccuracies or 0),
                 "blunders": game.blunders or 0,
                 "label": "{} vs {}".format(

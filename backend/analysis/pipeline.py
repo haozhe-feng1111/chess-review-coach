@@ -25,6 +25,7 @@ from analysis.critical import CriticalityAssessment, assess_criticality, select_
 from analysis.evidence import build_full_evidence, candidates_in_pov
 from analysis.features import build_board_context
 from analysis.phase import DEFAULT_PHASE_CLASSIFIER, PhaseClassifier
+from analysis.timepressure import build_time_pressure_summary, under_time_pressure
 from analysis.thresholds import THRESHOLDS, AnalysisThresholds
 from coaching.taxonomy import TaxonomyContext, classify_decision_errors
 from concepts.base import DetectionContext
@@ -122,12 +123,15 @@ class GameAnalyzer:
         self._cache_hits = 0
         self._warnings: List[str] = []
         self._positions_analyzed = 0
+        #: 本局的时间设置（analyze 时设置一次），时间压力判断要用它的基本用时。
+        self._base_seconds: Optional[int] = None
 
     # ------------------------------------------------------------------ public API
 
     def analyze(self, game: ParsedGame, game_id: str) -> GameReview:
         started = monotonic()
         self._pov_color = game.player_color
+        self._base_seconds = game.time_control.base_seconds if game.time_control else None
         positions, move_slots = self._build_slots(game)
         self._notify(0.02, "准备分析…")
 
@@ -263,11 +267,19 @@ class GameAnalyzer:
                 # Concepts and the decision taxonomy describe the analyzed player's
                 # decisions only; opponent moves still appear in the move list with their
                 # own severity.
+                slot.concepts = []
+                slot.errors = []
                 continue
             if not slot.severity.is_problem:
                 # A good move gets a severity label and nothing else. Running the
                 # detectors here only produces noise: a low-confidence "king safety
                 # worsened" tag on a move the engine rates as best actively misleads.
+                #
+                # 必须显式清空：第二遍的深搜可能把第一遍判成"有问题"的着法改判为"走对了"
+                # （浅搜的评估本来就可能偏）。清空之前，那些标签会残留在一条已经没问题的
+                # 着法上，界面上就会出现"最佳着法 + 丢子"这种自相矛盾的标注。
+                slot.concepts = []
+                slot.errors = []
                 continue
 
             detection_context = DetectionContext(
@@ -344,6 +356,11 @@ class GameAnalyzer:
             player_color=game.player_color,
             opening=game.opening,
             headers=game.headers,
+            time_control=game.time_control,
+            has_clocks=game.has_clocks,
+            time_pressure=build_time_pressure_summary(
+                assessments, game.time_control, self._thresholds
+            ),
             moves=assessments,
             critical_moments=moments,
             counts=self._counts(move_slots),
@@ -404,6 +421,8 @@ class GameAnalyzer:
             evaluation_after=evaluation_after,
             mate_after=mate_after,
             mate_before=engine.mate_before if engine else None,
+            clock_seconds=slot.move.clock_seconds,
+            time_pressure=under_time_pressure(slot.move.clock_seconds, self._base_seconds, self._thresholds),
             # 引擎推荐对每一手都保留：只有关键局面才会展开解释，但"应该走什么"人人都有。
             best_move_san=engine.best_move_san if engine else None,
             best_move_uci=engine.best_move_uci if engine else None,
@@ -419,6 +438,9 @@ class GameAnalyzer:
             played_line_san=list(engine.played_line_san) if engine else [],
             concept_tags=[concept.type for concept in slot.concepts],
             decision_error_tags=[error.type for error in slot.errors],
+            # classify_decision_errors 已经按置信度排序，第一个就是主因
+            primary_error=slot.errors[0].type if slot.errors else None,
+            primary_error_confidence=round(slot.errors[0].confidence, 4) if slot.errors else None,
         )
 
     def _to_critical_moment(
