@@ -275,3 +275,50 @@ def test_profile_input_is_empty_for_a_fresh_database(temp_database):
     assert data.total_games == 0
     assert data.mistake_events == []
     assert data.game_trend == []
+
+
+def test_existing_database_gains_new_columns_without_data_loss(tmp_path):
+    """旧版本建的库遇到新字段时要自动补列，而不是整块查询报 no such column。
+
+    做法：先手工建一张"缺列"的 games 表（模拟上一个版本），塞一行数据，
+    再让 Database.create_all() 跑一遍，确认列补上了、老数据还在。
+    """
+    from sqlalchemy import inspect, text
+
+    from storage.db import Database
+
+    url = "sqlite:///{}".format(tmp_path / "legacy.db")
+    legacy = Database(url)
+    with legacy.engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE games ("
+                "id VARCHAR(64) PRIMARY KEY, created_at DATETIME NOT NULL, "
+                "white VARCHAR(128), black VARCHAR(128), result VARCHAR(16), "
+                "player_color VARCHAR(8), pgn TEXT, move_count INTEGER, "
+                "player_move_count INTEGER, blunders INTEGER, mistakes INTEGER, "
+                "inaccuracies INTEGER, critical_count INTEGER, average_loss FLOAT, "
+                "engine_name VARCHAR(64), analysis_seconds FLOAT, status VARCHAR(16)"
+                ")"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO games (id, created_at, white, black) VALUES ('g1', '2024-01-01', 'me', 'op')")
+        )
+
+    legacy.create_all()  # create_all + ensure_columns
+
+    columns = {column["name"] for column in inspect(legacy.engine).get_columns("games")}
+    assert "review_json" in columns  # 新列补上了
+    assert "puzzles" in set(inspect(legacy.engine).get_table_names())  # 新表也建了
+    with legacy.engine.begin() as connection:
+        row = connection.execute(text("SELECT white, black FROM games WHERE id = 'g1'")).one()
+    assert tuple(row) == ("me", "op")  # 老数据没被动过
+    legacy.dispose()
+
+
+def test_ensure_columns_is_idempotent(temp_database):
+    """第二次启动不能再加一遍列，也不能报错。"""
+    from storage.db import ensure_columns
+
+    assert ensure_columns(temp_database.engine) == []

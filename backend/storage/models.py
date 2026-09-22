@@ -219,6 +219,54 @@ class AnalysisCacheEntry(Base):
     created_at = Column(DateTime, default=_utcnow, nullable=False, index=True)
 
 
+class PuzzleRow(Base):
+    """一条题目。id 是"对局 id:手数"，所以重跑分析不会产生重复题目。"""
+
+    __tablename__ = "puzzles"
+
+    id = Column(String(64), primary_key=True)
+    game_id = Column(String(64), ForeignKey("games.id", ondelete="CASCADE"), index=True)
+    ply = Column(Integer, nullable=False)
+    move_number = Column(Integer, nullable=False)
+    player_color = Column(String(8), nullable=False)
+    phase = Column(String(16), nullable=False)
+    kind = Column(String(16), nullable=False, index=True)
+    fen = Column(String(128), nullable=False)
+    #: 同一个局面只收一次（不同对局出现同一局面时，保留最早的那条）
+    fen_key = Column(String(128), nullable=False, unique=True, index=True)
+    solution_uci = Column(String(8), nullable=False)
+    solution_san = Column(String(16), nullable=False)
+    solution_line_uci = Column(JSON, default=list)
+    solution_line_san = Column(JSON, default=list)
+    mate_in = Column(Integer, nullable=True)
+    material_gain = Column(Integer, nullable=True)
+    theme = Column(String(48), nullable=True, index=True)
+    theme_label_zh = Column(String(64), default="未分类")
+    played_san = Column(String(16), default="")
+    severity = Column(String(16), nullable=False)
+    difficulty = Column(String(16), default="medium")
+    concept_tags = Column(JSON, default=list)
+    created_at = Column(DateTime, default=_utcnow, nullable=False, index=True)
+
+    attempts = relationship(
+        "PuzzleAttemptRow", back_populates="puzzle", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class PuzzleAttemptRow(Base):
+    """做题记录：以后用来验证"某一类错误是否真的变少了"。"""
+
+    __tablename__ = "puzzle_attempts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    puzzle_id = Column(String(64), ForeignKey("puzzles.id", ondelete="CASCADE"), index=True)
+    correct = Column(Boolean, default=False, index=True)
+    played_uci = Column(String(8), nullable=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False, index=True)
+
+    puzzle = relationship("PuzzleRow", back_populates="attempts")
+
+
 class AnalysisJob(Base):
     """Progress row for a running analysis, so the UI can poll it."""
 
@@ -244,4 +292,6 @@ __all__ = [
     "LLMExplanation",
     "AnalysisCacheEntry",
     "AnalysisJob",
+    "PuzzleRow",
+    "PuzzleAttemptRow",
 ]

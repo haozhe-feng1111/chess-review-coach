@@ -157,8 +157,14 @@ class StockfishEngine:
         nodes: int = 0,
         multipv: int = 1,
         timeout: Optional[float] = None,
+        root_moves: Optional[List[str]] = None,
     ) -> PositionEval:
-        """Search ``board`` and normalize the result to ``pov_color``'s view."""
+        """Search ``board`` and normalize the result to ``pov_color``'s view.
+
+        ``root_moves`` restricts the search to the given UCI moves. That is how the app
+        grades a move a human actually played ("what does the engine think of *this*
+        move?") without pretending it was the engine's own choice.
+        """
         fen = board.fen()
         if board.is_game_over(claim_draw=False):
             # Checkmate/stalemate has no principal variation by definition. Reporting it
@@ -174,15 +180,31 @@ class StockfishEngine:
                 warnings=["terminal position: no engine search performed"],
             )
 
+        restricted: Optional[List[chess.Move]] = None
+        if root_moves:
+            restricted = []
+            for uci in root_moves:
+                try:
+                    move = chess.Move.from_uci(uci)
+                except ValueError as exc:
+                    raise ValueError("不是合法的 UCI 着法：{}".format(uci)) from exc
+                if move not in board.legal_moves:
+                    raise ValueError("{} 在当前位置不合法".format(uci))
+                restricted.append(move)
+
         with self._lock:
             self.start()
 
         limit = chess.engine.Limit(nodes=nodes) if nodes > 0 else chess.engine.Limit(depth=depth)
         started = monotonic()
+        # 限制到具体着法时 MultiPV 没有意义：只有一个根着法可以选
+        multi = 1 if restricted else max(1, multipv)
 
         def run() -> List[chess.engine.InfoDict]:
             assert self._engine is not None
-            result = self._engine.analyse(board, limit, multipv=max(1, multipv))
+            result = self._engine.analyse(
+                board, limit, multipv=multi, root_moves=restricted
+            )
             # SimpleEngine returns a single dict for MultiPV=1 and a list otherwise.
             if isinstance(result, dict):
                 return [result]

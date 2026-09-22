@@ -17,8 +17,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+import chess
+
+from analysis.board import find_move_by_uci
 from analysis.lines import walk_line
 from analysis.pgn import count_games, parse_pgn
+from analysis.puzzles import extract_puzzles
 from analysis.pipeline import GameAnalyzer, PipelineConfig
 from analysis.profile import build_profile
 from coaching.explainer import CoachExplainer
@@ -28,14 +32,26 @@ from config import settings as default_settings
 from engine.errors import EngineError, EngineNotFoundError, PgnError
 from engine.stockfish import EngineConfig, EngineIdentity, StockfishEngine, probe_engine
 from models.api import MomentLinesResponse
-from models.enums import AnalysisStatus, Color
+from models.enums import AnalysisStatus, Color, PuzzleKind
 from models.explanation import GameSummaryRecord, MomentExplanation
 from models.profile import ProfileSummary
+from models.puzzle import (
+    Puzzle,
+    PuzzleAttemptResult,
+    PuzzleDetail,
+    PuzzleStats,
+    PuzzleStep,
+)
 from models.review import AnalysisJobStatus, GameListItem, GameReview
 from storage.cache import SqliteAnalysisCache, SqliteExplanationCache
 from storage.db import Database, get_database
 from storage.repository import (
     collect_profile_input,
+    get_puzzle,
+    list_puzzles,
+    puzzle_stats,
+    record_attempt,
+    save_puzzles,
     get_job as get_job_row,
     delete_game as repo_delete_game,
     get_review,
@@ -50,6 +66,62 @@ logger = logging.getLogger(__name__)
 
 #: 引擎 PV 在证据里保存的步数上限（与 engine.stockfish.PV_MAX_PLIES 保持一致）。
 PV_STORED_PLIES = 12
+
+#: 作答判定阈值：期望得分的落差小于它就算"一样好"。与 severity 用的是同一套
+#: 期望得分口径（见 analysis/thresholds.py），所以题目里的说法和复盘里一致。
+ATTEMPT_ALSO_GOOD_LOSS = 0.10
+ATTEMPT_INACCURATE_LOSS = 0.30
+
+
+def _classify_attempt(
+    is_engine_move: bool, grading: Optional[Tuple[float, float]], puzzle: Puzzle
+) -> Tuple[str, str, Optional[float]]:
+    """把"答案 + 引擎评分"翻译成一句中文结论。
+
+    Returns ``(verdict, verdict_zh, expected_score_loss)``.
+    """
+    if grading is None:
+        if is_engine_move:
+            return "correct", "和引擎答案一致（引擎暂时不可用，只比对了答案）", None
+        return (
+            "unverified",
+            "和引擎答案不同；引擎暂时不可用，这一步到底亏不亏没法判定",
+            None,
+        )
+
+    played_score, best_score = grading
+    loss = max(0.0, round(best_score - played_score, 4))
+    if is_engine_move:
+        return "correct", "走对了：这就是引擎的答案", loss
+    if loss <= ATTEMPT_ALSO_GOOD_LOSS:
+        return (
+            "also_good",
+            "也算走对了：不是引擎的首选，但期望得分只差 {:.0%}，不影响结论".format(loss),
+            loss,
+        )
+    if puzzle.kind is PuzzleKind.MATE:
+        return (
+            "wrong",
+            "没走对：这样走就杀不进去了（期望得分掉了 {:.0%}，引擎答案是 {}）".format(
+                loss, puzzle.solution_san
+            ),
+            loss,
+        )
+    if loss <= ATTEMPT_INACCURATE_LOSS:
+        return (
+            "inaccurate",
+            "不够好：期望得分掉了 {:.0%}，机会还在但变小了（引擎答案是 {}）".format(
+                loss, puzzle.solution_san
+            ),
+            loss,
+        )
+    return (
+        "wrong",
+        "没走对：期望得分掉了 {:.0%}，这一步把刚才的机会放走了（引擎答案是 {}）".format(
+            loss, puzzle.solution_san
+        ),
+        loss,
+    )
 
 
 @dataclass
@@ -317,6 +389,7 @@ class AnalysisService:
 
             with self._db.session() as session:
                 save_review(session, review, pgn)
+                self._store_puzzles(session, review)
 
             self._update_job(
                 job_id,
@@ -350,6 +423,138 @@ class AnalysisService:
             moment.one_liner_zh = one_liner_zh(moment.evidence)
         review.llm_available = self._coach.llm_available
         review.created_at = review.created_at or datetime.utcnow()
+
+    # ------------------------------------------------------------------ puzzles
+
+    def _store_puzzles(self, session, review: GameReview) -> int:
+        """分析完成后顺手提取题目（只收有强制走法的局面）。"""
+        try:
+            puzzles = extract_puzzles(review)
+        except Exception:  # pragma: no cover - 出题失败不该影响复盘
+            logger.exception("Extracting puzzles failed for game %s", review.game_id)
+            return 0
+        saved = save_puzzles(session, puzzles, review.game_id)
+        logger.info("Collected %s puzzles from game %s", saved, review.game_id)
+        return saved
+
+    def list_puzzles(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        kind: Optional[str] = None,
+        theme: Optional[str] = None,
+        game_id: Optional[str] = None,
+    ) -> List[Puzzle]:
+        with self._db.session() as session:
+            return list_puzzles(session, limit, offset, kind, theme, game_id)
+
+    def puzzle_stats(self) -> PuzzleStats:
+        with self._db.session() as session:
+            return puzzle_stats(session)
+
+    def get_puzzle_detail(self, puzzle_id: str) -> Optional[PuzzleDetail]:
+        """题目 + 展开好的线路（含每一步之后的局面），前端据此播放，不用自己算棋规。"""
+        with self._db.session() as session:
+            puzzle = get_puzzle(session, puzzle_id)
+        if puzzle is None:
+            return None
+
+        walk = walk_line(
+            puzzle.fen,
+            puzzle.solution_line_uci,
+            "solution",
+            "答案线路",
+            pv_limit_reached=False,
+        )
+        steps = [
+            PuzzleStep(uci=step.uci, san=step.san, fen_after=step.fen_after, mover=step.mover)
+            for step in walk.steps
+        ]
+        # 对手的应着（做题时逐步播放）
+        opponent_replies = [
+            step for index, step in enumerate(steps) if index % 2 == 1
+        ]
+        try:
+            legal_moves = sorted(move.uci() for move in chess.Board(puzzle.fen).legal_moves)
+        except ValueError:
+            # 局面本身存坏了：如实返回空列表，前端会提示"这道题的局面对不上"，
+            # 而不是让前端自己去猜合法着法。
+            logger.warning("Puzzle %s has an unreadable FEN: %s", puzzle_id, puzzle.fen)
+            legal_moves = []
+        return PuzzleDetail(
+            puzzle=puzzle,
+            steps=steps,
+            opponent_replies=opponent_replies,
+            legal_moves=legal_moves,
+        )
+
+    def grade_puzzle_attempt(
+        self, puzzle_id: str, played_uci: str
+    ) -> Optional[PuzzleAttemptResult]:
+        """判定一次作答并记录。
+
+        判定不是简单的字符串比对，而是两层：
+
+        1. 和引擎推荐着法是否一致（这是题目的"答案"）；
+        2. 这一步到底亏不亏——用引擎给"他走的这一步"和"引擎自己的着法"分别算期望得分，
+           再相减。答案之外的着法也可能一样好，光看第 1 层会冤枉人。
+
+        引擎不可用时不编故事：只按第 1 层判，并在 ``graded_by`` 里说明。
+        """
+        with self._db.session() as session:
+            puzzle = get_puzzle(session, puzzle_id)
+        if puzzle is None:
+            return None
+
+        board = chess.Board(puzzle.fen)
+        move = find_move_by_uci(board, played_uci)
+        if move is None:
+            raise ValueError("{} 在题目局面里不是合法着法".format(played_uci))
+        played_san = board.san(move)
+        is_engine_move = played_uci == puzzle.solution_uci
+
+        grading = self._grade_move(board, played_uci, puzzle.player_color)
+        verdict, verdict_zh, loss = _classify_attempt(is_engine_move, grading, puzzle)
+        correct = verdict in ("correct", "also_good")
+
+        with self._db.session() as session:
+            result = record_attempt(session, puzzle_id, correct, played_uci)
+        if result is None:  # pragma: no cover - get_puzzle 已经确认存在
+            return None
+
+        result.played_san = played_san
+        result.best_san = puzzle.solution_san
+        result.is_engine_move = is_engine_move
+        result.verdict = verdict
+        result.verdict_zh = verdict_zh
+        result.expected_score_loss = loss
+        if grading is not None:
+            result.graded_by = "engine"
+            result.played_expected_score = grading[0]
+            result.best_expected_score = grading[1]
+        return result
+
+    def _grade_move(
+        self, board: chess.Board, played_uci: str, player_color: Color
+    ) -> Optional[Tuple[float, float]]:
+        """（这一步的期望得分，引擎最佳着法的期望得分）；引擎不可用就返回 None。"""
+        depth = self._settings.grade_depth
+        try:
+            engine = self.ensure_engine()
+            best = engine.analyse(board, pov_color=player_color, depth=depth)
+            played = engine.analyse(
+                board, pov_color=player_color, depth=depth, root_moves=[played_uci]
+            )
+        except EngineError as exc:
+            logger.warning("Could not grade a puzzle attempt with the engine: %s", exc.message)
+            return None
+        except ValueError as exc:
+            logger.warning("Could not grade a puzzle attempt: %s", exc)
+            return None
+
+        if not best.candidates or not played.candidates:
+            return None
+        return played.candidates[0].expected_score, best.candidates[0].expected_score
 
     # ------------------------------------------------------------------- jobs
 

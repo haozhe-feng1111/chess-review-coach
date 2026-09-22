@@ -16,6 +16,11 @@ import type {
   MomentExplanation,
   MomentLines,
   ProfileSummary,
+  Puzzle,
+  PuzzleAttemptResult,
+  PuzzleDetail,
+  PuzzleKind,
+  PuzzleStats,
 } from "./types";
 
 export const API_BASE =
@@ -118,6 +123,37 @@ export const api = {
     }),
 
   profile: () => request<ProfileSummary>("/api/profile"),
+
+  /** 题目列表。只包含有强制走法的局面（将杀 / 赚子）。 */
+  puzzles: (params: {
+    limit?: number;
+    kind?: PuzzleKind | "all";
+    theme?: string | null;
+    gameId?: string | null;
+  } = {}) => {
+    const search = new URLSearchParams();
+    search.set("limit", String(params.limit ?? 100));
+    if (params.kind && params.kind !== "all") search.set("kind", params.kind);
+    if (params.theme) search.set("theme", params.theme);
+    if (params.gameId) search.set("game_id", params.gameId);
+    return request<Puzzle[]>(`/api/puzzles?${search.toString()}`);
+  },
+
+  puzzleStats: () => request<PuzzleStats>("/api/puzzles/stats"),
+
+  /** 题目详情：含展开好的答案线路（每一步之后的局面），前端只负责播放。 */
+  puzzle: (puzzleId: string) =>
+    request<PuzzleDetail>(`/api/puzzles/${encodeURIComponent(puzzleId)}`),
+
+  /**
+   * 提交一次作答。只上报"他走了哪一步"——对错由服务端用引擎判定，
+   * 前端不自己算棋，也不自己宣布"做对了"。
+   */
+  attemptPuzzle: (puzzleId: string, playedUci: string) =>
+    request<PuzzleAttemptResult>(`/api/puzzles/${encodeURIComponent(puzzleId)}/attempt`, {
+      method: "POST",
+      body: JSON.stringify({ played_uci: playedUci }),
+    }),
 };
 
 /** Poll a queued analysis job until it settles. */

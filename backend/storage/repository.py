@@ -11,11 +11,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from models.enums import DecisionErrorType, Severity
 from models.profile import ExampleMoment
+from models.puzzle import Puzzle, PuzzleAttemptResult, PuzzleStats
 from models.review import GameListItem, GameReview
 from storage.models import (
     AnalysisJob,
@@ -409,6 +410,186 @@ def example_moment_from_row(row: Dict[str, object]) -> ExampleMoment:
         one_liner_zh=str(row.get("one_liner_zh", "")),
         fen=str(row.get("fen", "")),
         solution_san=(str(row["solution_san"]) if row.get("solution_san") else None),
+    )
+
+
+# ------------------------------------------------------------------------ puzzles
+
+
+def save_puzzles(session: Session, puzzles: List[Puzzle], game_id: str) -> int:
+    """保存一盘棋提取出的题目（先清掉这盘棋的旧题目，保证可重复运行）。
+
+    同一个**局面**只收集一次：不同对局里出现相同局面时，保留最早收集到的那条，
+    避免练习时反复遇到同一道题。
+    """
+    from storage.models import PuzzleRow
+
+    session.execute(delete(PuzzleRow).where(PuzzleRow.game_id == game_id))
+
+    existing_fens = {
+        row for (row,) in session.execute(select(PuzzleRow.fen_key)).all()
+    }
+    saved = 0
+    for puzzle in puzzles:
+        key = puzzle_fen_key(puzzle.fen)
+        if key in existing_fens:
+            continue
+        existing_fens.add(key)
+        session.add(
+            PuzzleRow(
+                id=puzzle.id,
+                game_id=puzzle.game_id,
+                ply=puzzle.ply,
+                move_number=puzzle.move_number,
+                player_color=puzzle.player_color.value,
+                phase=puzzle.phase.value,
+                kind=puzzle.kind.value,
+                fen=puzzle.fen,
+                fen_key=key,
+                solution_uci=puzzle.solution_uci,
+                solution_san=puzzle.solution_san,
+                solution_line_uci=puzzle.solution_line_uci,
+                solution_line_san=puzzle.solution_line_san,
+                mate_in=puzzle.mate_in,
+                material_gain=puzzle.material_gain,
+                theme=puzzle.theme.value if puzzle.theme else None,
+                theme_label_zh=puzzle.theme_label_zh,
+                played_san=puzzle.played_san,
+                severity=puzzle.severity.value,
+                difficulty=puzzle.difficulty,
+                concept_tags=[tag.value for tag in puzzle.concept_tags],
+                created_at=puzzle.created_at or datetime.utcnow(),
+            )
+        )
+        saved += 1
+    session.flush()
+    return saved
+
+
+def puzzle_fen_key(fen: str) -> str:
+    """局面的身份：忽略半回合计数与回合数，只比较棋盘、走子方、易位、吃过路兵。"""
+    parts = fen.split()
+    return " ".join(parts[:4]) if len(parts) >= 4 else fen
+
+
+def _row_to_puzzle(row) -> Puzzle:
+    from models.enums import Color, ConceptType, GamePhase, PuzzleKind, Severity
+
+    return Puzzle(
+        id=row.id,
+        game_id=row.game_id,
+        ply=row.ply,
+        move_number=row.move_number,
+        player_color=Color(row.player_color),
+        phase=GamePhase(row.phase),
+        kind=PuzzleKind(row.kind),
+        fen=row.fen,
+        solution_uci=row.solution_uci,
+        solution_san=row.solution_san,
+        solution_line_uci=list(row.solution_line_uci or []),
+        solution_line_san=list(row.solution_line_san or []),
+        mate_in=row.mate_in,
+        material_gain=row.material_gain,
+        theme=ConceptType(row.theme) if row.theme else None,
+        theme_label_zh=row.theme_label_zh or "未分类",
+        played_san=row.played_san or "",
+        severity=Severity(row.severity),
+        difficulty=row.difficulty or "medium",
+        concept_tags=[ConceptType(value) for value in (row.concept_tags or [])],
+        created_at=row.created_at,
+    )
+
+
+def list_puzzles(
+    session: Session,
+    limit: int = 50,
+    offset: int = 0,
+    kind: Optional[str] = None,
+    theme: Optional[str] = None,
+    game_id: Optional[str] = None,
+) -> List[Puzzle]:
+    from storage.models import PuzzleRow
+
+    query = select(PuzzleRow).order_by(PuzzleRow.created_at.desc(), PuzzleRow.ply)
+    if kind:
+        query = query.where(PuzzleRow.kind == kind)
+    if theme:
+        query = query.where(PuzzleRow.theme == theme)
+    if game_id:
+        query = query.where(PuzzleRow.game_id == game_id)
+    rows = session.execute(query.limit(limit).offset(offset)).scalars()
+    return [_row_to_puzzle(row) for row in rows]
+
+
+def get_puzzle(session: Session, puzzle_id: str) -> Optional[Puzzle]:
+    from storage.models import PuzzleRow
+
+    row = session.get(PuzzleRow, puzzle_id)
+    return _row_to_puzzle(row) if row else None
+
+
+def record_attempt(
+    session: Session, puzzle_id: str, correct: bool, played_uci: Optional[str]
+) -> Optional[PuzzleAttemptResult]:
+    from storage.models import PuzzleAttemptRow, PuzzleRow
+
+    if session.get(PuzzleRow, puzzle_id) is None:
+        return None
+    session.add(
+        PuzzleAttemptRow(puzzle_id=puzzle_id, correct=correct, played_uci=played_uci)
+    )
+    session.flush()
+    total, solved = session.execute(
+        select(func.count(PuzzleAttemptRow.id), func.sum(case((PuzzleAttemptRow.correct.is_(True), 1), else_=0)))
+        .where(PuzzleAttemptRow.puzzle_id == puzzle_id)
+    ).one()
+    return PuzzleAttemptResult(
+        puzzle_id=puzzle_id,
+        correct=correct,
+        played_uci=played_uci,
+        attempts=int(total or 0),
+        solved=int(solved or 0),
+    )
+
+
+def puzzle_stats(session: Session) -> PuzzleStats:
+    from storage.models import PuzzleAttemptRow, PuzzleRow
+
+    total = int(session.execute(select(func.count(PuzzleRow.id))).scalar_one() or 0)
+    mate = int(
+        session.execute(
+            select(func.count(PuzzleRow.id)).where(PuzzleRow.kind == "mate")
+        ).scalar_one()
+        or 0
+    )
+    attempted = int(
+        session.execute(select(func.count(func.distinct(PuzzleAttemptRow.puzzle_id)))).scalar_one() or 0
+    )
+    solved = int(
+        session.execute(
+            select(func.count(func.distinct(PuzzleAttemptRow.puzzle_id))).where(
+                PuzzleAttemptRow.correct.is_(True)
+            )
+        ).scalar_one()
+        or 0
+    )
+    by_theme = [
+        {"theme": str(theme), "label_zh": str(label), "count": int(count)}
+        for theme, label, count in session.execute(
+            select(PuzzleRow.theme, PuzzleRow.theme_label_zh, func.count(PuzzleRow.id)).group_by(
+                PuzzleRow.theme, PuzzleRow.theme_label_zh
+            )
+        )
+    ]
+    by_theme.sort(key=lambda item: -item["count"])
+    return PuzzleStats(
+        total=total,
+        mate=mate,
+        material=total - mate,
+        attempted=attempted,
+        solved=solved,
+        solved_rate=round(solved / attempted, 4) if attempted else 0.0,
+        by_theme=by_theme,
     )
 
 

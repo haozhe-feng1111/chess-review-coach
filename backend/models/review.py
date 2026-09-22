@@ -63,6 +63,8 @@ class MoveAssessment(BaseModel):
     # Evaluation of the position *after* this move, player perspective.
     evaluation_after: Optional[float] = None
     mate_after: Optional[int] = None
+    #: 引擎在走子前看到的杀棋（正数 = 玩家可以 N 步将杀）。出题要靠它。
+    mate_before: Optional[int] = None
     # --- engine recommendation for the position this move was played in ---
     best_move_san: Optional[str] = None
     best_move_uci: Optional[str] = None

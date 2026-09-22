@@ -5,7 +5,7 @@
  * in one file means a new concept or error category shows up in exactly one place.
  */
 
-import type { Color, GamePhase, Severity } from "./types";
+import type { Color, GamePhase, PuzzleKind, PuzzleVerdict, Severity } from "./types";
 
 export const SEVERITY_LABELS: Record<Severity, string> = {
   best: "最佳",
@@ -150,4 +150,53 @@ export function formatLoss(value: number | null): string {
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+// ------------------------------------------------------------------- 题目训练
+
+export const PUZZLE_KIND_LABELS: Record<PuzzleKind, string> = {
+  mate: "强制将杀",
+  material: "赚取子力",
+};
+
+export const PUZZLE_DIFFICULTY_LABELS: Record<string, string> = {
+  easy: "简单",
+  medium: "中等",
+  hard: "困难",
+};
+
+export const PUZZLE_VERDICT_LABELS: Record<PuzzleVerdict, string> = {
+  correct: "走对了",
+  also_good: "也算走对了",
+  inaccurate: "不够好",
+  wrong: "没走对",
+  unverified: "无法判定",
+};
+
+export const PUZZLE_VERDICT_CLASSES: Record<PuzzleVerdict, string> = {
+  correct: "bg-emerald-950 text-emerald-300 ring-emerald-800",
+  also_good: "bg-emerald-950 text-emerald-200 ring-emerald-800",
+  inaccurate: "bg-amber-950 text-amber-300 ring-amber-800",
+  wrong: "bg-rose-950 text-rose-300 ring-rose-800",
+  unverified: "bg-slate-800 text-slate-300 ring-slate-700",
+};
+
+export function puzzleKindLabel(value: PuzzleKind): string {
+  return PUZZLE_KIND_LABELS[value] ?? value;
+}
+
+export function puzzleDifficultyLabel(value: string): string {
+  return PUZZLE_DIFFICULTY_LABELS[value] ?? value;
+}
+
+/** 题目目标的一句话说明（将杀几步 / 净赚几分）。 */
+export function puzzleGoalLabel(puzzle: {
+  kind: PuzzleKind;
+  mate_in: number | null;
+  material_gain: number | null;
+}): string {
+  if (puzzle.kind === "mate") {
+    return puzzle.mate_in ? `${puzzle.mate_in} 步内强制将杀` : "强制将杀";
+  }
+  return puzzle.material_gain ? `净赚 ${puzzle.material_gain} 分子力` : "赚取子力";
 }

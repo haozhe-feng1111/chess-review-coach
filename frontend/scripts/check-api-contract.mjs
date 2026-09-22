@@ -201,6 +201,54 @@ async function main() {
   check("summary.explanation.main_patterns", summary.explanation?.main_patterns, isArray, "array");
   check("summary.explanation.practice_advice", summary.explanation?.practice_advice, isArray, "array");
 
+  section("题目训练 (GET /api/puzzles)");
+  const puzzleStats = await get("/api/puzzles/stats");
+  check("puzzleStats.total", puzzleStats.total, isNumber, "number");
+  check("puzzleStats.mate", puzzleStats.mate, isNumber, "number");
+  check("puzzleStats.material", puzzleStats.material, isNumber, "number");
+  check("puzzleStats.attempted", puzzleStats.attempted, isNumber, "number");
+  check("puzzleStats.solved_rate", puzzleStats.solved_rate, isNumber, "number");
+  check("puzzleStats.by_theme", puzzleStats.by_theme, isArray, "array");
+
+  const puzzles = await get("/api/puzzles?limit=5");
+  check("puzzles", puzzles, isArray, "array");
+  if (puzzles.length === 0) {
+    console.log("  · 题库为空（这盘棋没有可出的题目），跳过题目详情检查");
+  } else {
+    const puzzle = puzzles[0];
+    for (const field of ["id", "game_id", "fen", "solution_uci", "solution_san", "played_san", "difficulty"]) {
+      check(`puzzle.${field}`, puzzle[field], isString, "string");
+    }
+    check("puzzle.kind", puzzle.kind, (v) => v === "mate" || v === "material", "mate|material");
+    check("puzzle.solution_line_san", puzzle.solution_line_san, isArray, "array");
+
+    const detail = await get(`/api/puzzles/${encodeURIComponent(puzzle.id)}`);
+    check("puzzleDetail.steps", detail.steps, isArray, "array");
+    check("puzzleDetail.legal_moves", detail.legal_moves, (v) => isArray(v) && v.length > 0, "non-empty array");
+    check("puzzleDetail.steps[0].fen_after", detail.steps[0]?.fen_after, isString, "string");
+    check("puzzleDetail.puzzle.solution_uci", detail.puzzle?.solution_uci, isString, "string");
+    // 合法着法必须包含答案本身，否则用户永远做不对
+    check(
+      "puzzleDetail.legal_moves contains solution",
+      detail.legal_moves,
+      (v) => v.includes(puzzle.solution_uci),
+      "includes solution_uci",
+    );
+
+    const attempt = await fetch(`${API}/api/puzzles/${encodeURIComponent(puzzle.id)}/attempt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ played_uci: puzzle.solution_uci }),
+    }).then((r) => r.json());
+    check("attempt.correct", attempt.correct, isBool, "boolean");
+    check("attempt.is_engine_move", attempt.is_engine_move, isBool, "boolean");
+    check("attempt.graded_by", attempt.graded_by, (v) => v === "engine" || v === "answer_only", "engine|answer_only");
+    check("attempt.verdict", attempt.verdict, isString, "string");
+    check("attempt.verdict_zh", attempt.verdict_zh, (v) => isString(v) && v.length > 0, "non-empty");
+    check("attempt.attempts", attempt.attempts, isNumber, "number");
+    console.log(`  题目：${puzzle.theme_label_zh} / ${puzzle.kind} → ${attempt.verdict}`);
+  }
+
   section("档案 (GET /api/profile)");
   const profile = await get("/api/profile");
   check("profile.total_games", profile.total_games, isNumber, "number");

@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # --- Review composition ---
     max_critical_moments: int = 5
 
+    # --- Puzzle practice ---
+    # 给"玩家实际走的那一步"打分用的深度。比复盘浅：这只是即时反馈，
+    # 而且每答一次就要跑一次搜索，本地机器上得等得起。
+    grade_depth: int = 12
+
     # --- LLM (DeepSeek, OpenAI-compatible) ---
     deepseek_api_key: str = ""
     # 需要代理才能访问外网时填这里（httpx 读的是环境变量，所以下面会导出过去）。

@@ -6,12 +6,14 @@ not a developer.
 """
 
 import logging
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.service import AnalysisService, get_service
 from engine.errors import EngineError, PgnError
 from models.api import (
     AnalyzeRequest,
+    PuzzleAttemptRequest,
     LLMTestResponse,
     MomentLinesResponse,
     AnalyzeResponse,
@@ -24,6 +26,12 @@ from models.api import (
     JobResponse,
 )
 from models.profile import ProfileSummary
+from models.puzzle import (
+    Puzzle,
+    PuzzleAttemptResult,
+    PuzzleDetail,
+    PuzzleStats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +179,58 @@ def game_summary(
 def delete_game(game_id: str, svc: AnalysisService = Depends(service)) -> DeleteResponse:
     deleted = svc.delete_game(game_id)
     return DeleteResponse(game_id=game_id, deleted=deleted)
+
+
+@router.get("/puzzles", response_model=List[Puzzle])
+def list_puzzles(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    kind: Optional[str] = Query(default=None, pattern="^(mate|material)$"),
+    theme: Optional[str] = Query(default=None),
+    game_id: Optional[str] = Query(default=None),
+    svc: AnalysisService = Depends(service),
+) -> List[Puzzle]:
+    """题目列表。只包含有强制走法的局面（将杀 / 赚子）。"""
+    return svc.list_puzzles(limit=limit, offset=offset, kind=kind, theme=theme, game_id=game_id)
+
+
+@router.get("/puzzles/stats", response_model=PuzzleStats)
+def puzzles_stats(svc: AnalysisService = Depends(service)) -> PuzzleStats:
+    return svc.puzzle_stats()
+
+
+@router.get("/puzzles/{puzzle_id}", response_model=PuzzleDetail)
+def puzzle_detail(
+    puzzle_id: str, svc: AnalysisService = Depends(service)
+) -> PuzzleDetail:
+    """题目详情：含展开好的答案线路（每一步之后的局面），前端直接播放。"""
+    detail = svc.get_puzzle_detail(puzzle_id)
+    if detail is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "puzzle not found", "hint_zh": "找不到这道题目。"},
+        )
+    return detail
+
+
+@router.post("/puzzles/{puzzle_id}/attempt", response_model=PuzzleAttemptResult)
+def puzzle_attempt(
+    puzzle_id: str, request: PuzzleAttemptRequest, svc: AnalysisService = Depends(service)
+) -> PuzzleAttemptResult:
+    """记录一次作答：客户端只说他走了哪一步，对错由服务端用引擎判定。"""
+    try:
+        result = svc.grade_puzzle_attempt(puzzle_id, request.played_uci)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "illegal move", "hint_zh": str(exc)},
+        )
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "puzzle not found", "hint_zh": "找不到这道题目。"},
+        )
+    return result
 
 
 @router.get("/profile", response_model=ProfileSummary)

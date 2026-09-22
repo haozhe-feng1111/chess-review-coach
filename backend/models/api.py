@@ -119,6 +119,16 @@ class MomentLinesResponse(BaseModel):
     played: LineWalk
 
 
+class PuzzleAttemptRequest(BaseModel):
+    """一次作答：客户端只报"他走了哪一步"，对错由服务端判定。
+
+    刻意不接受客户端传来的 ``correct``：对错要用引擎评估来判，前端既不自己算棋，
+    也没有机会把"我做对了"直接写进数据库。
+    """
+
+    played_uci: str
+
+
 class LLMTestResponse(BaseModel):
     """「测试 AI 连接」的结果：是否配置、是否真的调通、以及中文的下一步建议。"""
 

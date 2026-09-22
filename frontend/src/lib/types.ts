@@ -388,3 +388,68 @@ export interface HealthResponse {
   pass2_depth: number;
   max_critical_moments: number;
 }
+
+// ------------------------------------------------------------------- 题目训练
+
+export type PuzzleKind = "mate" | "material";
+
+export type PuzzleVerdict = "correct" | "also_good" | "inaccurate" | "wrong" | "unverified";
+
+export interface Puzzle {
+  id: string;
+  game_id: string;
+  ply: number;
+  move_number: number;
+  player_color: Color;
+  phase: GamePhase;
+  kind: PuzzleKind;
+  fen: string;
+  solution_uci: string;
+  solution_san: string;
+  solution_line_uci: string[];
+  solution_line_san: string[];
+  mate_in: number | null;
+  material_gain: number | null;
+  theme: string | null;
+  theme_label_zh: string;
+  played_san: string;
+  severity: Severity;
+  difficulty: string;
+  concept_tags: string[];
+  created_at: string | null;
+}
+
+export interface PuzzleDetail {
+  puzzle: Puzzle;
+  steps: LineStep[];
+  opponent_replies: LineStep[];
+  /** 题目局面下的全部合法着法（服务端用 python-chess 算的）。 */
+  legal_moves: string[];
+}
+
+export interface PuzzleAttemptResult {
+  puzzle_id: string;
+  correct: boolean;
+  played_uci: string | null;
+  played_san: string | null;
+  best_san: string | null;
+  is_engine_move: boolean;
+  graded_by: "engine" | "answer_only";
+  verdict: PuzzleVerdict;
+  verdict_zh: string;
+  expected_score_loss: number | null;
+  played_expected_score: number | null;
+  best_expected_score: number | null;
+  attempts: number;
+  solved: number;
+}
+
+export interface PuzzleStats {
+  total: number;
+  mate: number;
+  material: number;
+  attempted: number;
+  solved: number;
+  solved_rate: number;
+  by_theme: { theme: string | null; label_zh: string; count: number }[];
+}

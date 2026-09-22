@@ -112,6 +112,29 @@ class DecisionErrorType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class PuzzleKind(str, Enum):
+    """题目类型：只收集有强制走法的局面。
+
+    刻意**不做**"改善局面"这类抽象题——那类题目的答案很难客观界定，
+    而这个项目的前提是"每条结论都能追溯到引擎或确定性事实"。
+    """
+
+    MATE = "mate"          # 引擎看到强制将杀
+    MATERIAL = "material"  # 引擎线路能净赚子力
+
+
+PUZZLE_KIND_LABELS_ZH: Dict[PuzzleKind, str] = {
+    PuzzleKind.MATE: "强制将杀",
+    PuzzleKind.MATERIAL: "赚取子力",
+}
+
+PUZZLE_DIFFICULTY_LABELS_ZH: Dict[str, str] = {
+    "easy": "简单",
+    "medium": "中等",
+    "hard": "困难",
+}
+
+
 class ExplanationSource(str, Enum):
     LLM = "llm"
     RULES = "rules"  # deterministic template fallback, used when no API key is set

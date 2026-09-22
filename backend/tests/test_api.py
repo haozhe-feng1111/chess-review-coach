@@ -13,7 +13,9 @@ from api.main import create_app
 from api.routes import service as service_dependency
 from api.service import AnalysisService
 from config import settings
+from storage.repository import save_review
 from tests.conftest import requires_engine
+from tests.test_storage import build_review
 
 SCHOLARS_MATE = """[Event "Test"]
 [White "White"]
@@ -257,3 +259,131 @@ def test_profile_of_an_empty_database_is_honest(api):
     assert profile["total_games"] == 0
     assert profile["weaknesses"] == []
     assert "还没有分析过对局" in profile["sample_size_note_zh"]
+
+
+# ------------------------------------------------------------------ 题目 / 练习
+
+
+def _seed_puzzle(analysis_service, game_id: str = "puzzle-game"):
+    """往库里塞一道可核实的题目：白方 Rxd5 白吃一马（净赚 3 分）。"""
+    from models.enums import Color, GamePhase, PuzzleKind, Severity
+    from models.puzzle import Puzzle
+    from storage.repository import save_puzzles
+
+    with analysis_service.database.session() as session:
+        save_review(session, build_review(game_id), "1. e4 e5 *")
+        save_puzzles(
+            session,
+            [
+                Puzzle(
+                    id="{}:1".format(game_id),
+                    game_id=game_id,
+                    ply=1,
+                    move_number=1,
+                    player_color=Color.WHITE,
+                    phase=GamePhase.MIDDLEGAME,
+                    kind=PuzzleKind.MATERIAL,
+                    fen="4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1",
+                    solution_uci="d1d5",
+                    solution_san="Rxd5",
+                    solution_line_uci=["d1d5"],
+                    solution_line_san=["Rxd5"],
+                    material_gain=3,
+                    theme_label_zh="悬子（无保护）",
+                    played_san="h3",
+                    severity=Severity.MISTAKE,
+                    difficulty="easy",
+                )
+            ],
+            game_id,
+        )
+    return "{}:1".format(game_id)
+
+
+def test_puzzle_endpoints_are_empty_and_honest_on_a_fresh_database(api):
+    client, _service = api
+    assert client.get("/api/puzzles").json() == []
+    stats = client.get("/api/puzzles/stats").json()
+    assert stats["total"] == 0
+    assert stats["solved_rate"] == 0.0
+    assert client.get("/api/puzzles/nope:1").status_code == 404
+    assert client.post("/api/puzzles/nope:1/attempt", json={"played_uci": "e2e4"}).status_code == 404
+
+
+def test_puzzle_list_detail_and_attempt_without_an_engine(api, monkeypatch):
+    """引擎不可用时也要能用：只比对答案，并且如实说明是"只比对了答案"。"""
+    client, service = api
+    puzzle_id = _seed_puzzle(service)
+    monkeypatch.setattr(service, "_grade_move", lambda *args, **kwargs: None)
+
+    listing = client.get("/api/puzzles").json()
+    assert [item["id"] for item in listing] == [puzzle_id]
+    assert client.get("/api/puzzles?kind=mate").json() == []
+    assert client.get("/api/puzzles?kind=material").json()[0]["material_gain"] == 3
+
+    detail = client.get("/api/puzzles/{}".format(puzzle_id)).json()
+    assert detail["puzzle"]["solution_san"] == "Rxd5"
+    assert [step["san"] for step in detail["steps"]] == ["Rxd5"]
+    assert "d1d5" in detail["legal_moves"]
+    # 合法着法由服务端给出，前端不用自己算棋规
+    assert "d1d2" in detail["legal_moves"]
+
+    exact = client.post(
+        "/api/puzzles/{}/attempt".format(puzzle_id), json={"played_uci": "d1d5"}
+    ).json()
+    assert exact["correct"] is True
+    assert exact["is_engine_move"] is True
+    assert exact["graded_by"] == "answer_only"
+    assert exact["expected_score_loss"] is None
+
+    other = client.post(
+        "/api/puzzles/{}/attempt".format(puzzle_id), json={"played_uci": "d1d2"}
+    ).json()
+    assert other["correct"] is False
+    assert other["verdict"] == "unverified"
+    assert other["played_san"] == "Rd2"
+    assert other["attempts"] == 2 and other["solved"] == 1
+
+    stats = client.get("/api/puzzles/stats").json()
+    assert stats["total"] == 1 and stats["material"] == 1 and stats["mate"] == 0
+    assert stats["attempted"] == 1 and stats["solved"] == 1
+
+
+def test_illegal_attempt_is_rejected_with_a_chinese_hint(api, monkeypatch):
+    client, service = api
+    puzzle_id = _seed_puzzle(service)
+    monkeypatch.setattr(service, "_grade_move", lambda *args, **kwargs: None)
+    response = client.post(
+        "/api/puzzles/{}/attempt".format(puzzle_id), json={"played_uci": "a1a8"}
+    )
+    assert response.status_code == 400
+    hint = response.json()["detail"]["hint_zh"]
+    assert "a1a8" in hint
+    assert any("\u4e00" <= char <= "\u9fff" for char in hint)
+
+
+@requires_engine
+def test_engine_grades_an_attempt_and_credits_an_equally_good_move(api):
+    """引擎可用时：答对给出期望得分，答错给出掉了多少。"""
+    client, service = api
+    puzzle_id = _seed_puzzle(service)
+
+    best = client.post(
+        "/api/puzzles/{}/attempt".format(puzzle_id), json={"played_uci": "d1d5"}
+    ).json()
+    assert best["graded_by"] == "engine"
+    assert best["correct"] is True
+    assert best["verdict"] == "correct"
+    assert best["expected_score_loss"] is not None
+    assert best["expected_score_loss"] <= 0.1
+    assert best["verdict_zh"]
+
+    worse = client.post(
+        "/api/puzzles/{}/attempt".format(puzzle_id), json={"played_uci": "d1d2"}
+    ).json()
+    assert worse["graded_by"] == "engine"
+    assert worse["correct"] is False
+    assert worse["verdict"] in ("inaccurate", "wrong")
+    # 白白放走一匹马，期望得分必须明显掉下来，而不是"差不多"
+    assert worse["expected_score_loss"] > 0.1
+    assert worse["played_expected_score"] < worse["best_expected_score"]

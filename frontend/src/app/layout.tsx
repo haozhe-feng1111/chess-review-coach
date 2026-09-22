@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" className="hover:text-white">
                 导入对局
               </Link>
+              <Link href="/puzzles" className="hover:text-white">
+                题目训练
+              </Link>
               <Link href="/profile" className="hover:text-white">
                 个人档案
               </Link>

@@ -403,6 +403,7 @@ class GameAnalyzer:
             ),
             evaluation_after=evaluation_after,
             mate_after=mate_after,
+            mate_before=engine.mate_before if engine else None,
             # 引擎推荐对每一手都保留：只有关键局面才会展开解释，但"应该走什么"人人都有。
             best_move_san=engine.best_move_san if engine else None,
             best_move_uci=engine.best_move_uci if engine else None,
