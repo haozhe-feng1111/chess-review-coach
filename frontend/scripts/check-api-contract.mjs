@@ -247,6 +247,8 @@ async function main() {
     check("attempt.verdict_zh", attempt.verdict_zh, (v) => isString(v) && v.length > 0, "non-empty");
     check("attempt.attempts", attempt.attempts, isNumber, "number");
     console.log(`  题目：${puzzle.theme_label_zh} / ${puzzle.kind} → ${attempt.verdict}`);
+    // 如实说明副作用：这一步会被记进这道题的作答记录，不是"只读"检查
+    console.log("  · 注意：这次作答已经写进该题的作答记录（题库页的统计会 +1）");
   }
 
   section("档案 (GET /api/profile)");
