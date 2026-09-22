@@ -8,6 +8,7 @@
  * 引擎给的理由、看答案能播放线路。
  */
 
+import { StrictMode } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -195,6 +196,21 @@ describe("题目训练页", () => {
     await waitFor(() =>
       expect(screen.getByTestId("board").dataset.fen).toBe("after-rxd5"),
     );
+  });
+
+  it("React 严格模式下（开发环境的双次 effect）也能加载出题目", async () => {
+    // 这条是回归测试：next.config 里 reactStrictMode 是开着的，开发环境会
+    // 挂载 → 清理 → 再挂载。如果组件用 ref 记住"已经请求过"、同时又在清理时
+    // 把结果丢掉，就会出现"请求发出去了、但界面永远停在加载中"。
+    render(
+      <StrictMode>
+        <PuzzlePage />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("board")).toBeTruthy(), {
+      timeout: 3000,
+    });
   });
 
   it("题库为空时给出下一步该做什么，而不是一片空白", async () => {

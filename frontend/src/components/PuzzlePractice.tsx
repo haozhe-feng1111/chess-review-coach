@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import PuzzleBoard, { type PuzzleBoardArrow } from "@/components/PuzzleBoard";
@@ -57,11 +57,12 @@ export default function PuzzlePractice({
   const [playIndex, setPlayIndex] = useState(0);
   const [autoPlaying, setAutoPlaying] = useState(false);
   const [playedUci, setPlayedUci] = useState<string | null>(null);
-  const requested = useRef(false);
 
+  // 注意：这里**不能**用 ref 做"只请求一次"的守卫。next.config 里 reactStrictMode
+  // 是开着的，开发环境会「挂载 → 清理 → 再挂载」：守卫会让第二次直接跳过，
+  // 而第一次的结果又被清理时丢掉了，界面就永远停在"正在加载题目…"。
+  // 重复请求同一个局面是无害的（接口不写库），所以老老实实每次 effect 都拉一遍。
   useEffect(() => {
-    if (requested.current) return;
-    requested.current = true;
     let cancelled = false;
     api
       .puzzle(puzzle.id)
